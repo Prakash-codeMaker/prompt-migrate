@@ -45,7 +45,8 @@
 - [x] `validate` command (#10).
   - 2026-11-16: `StrictValidationError` (exit 3) is added. Baseline: 893 passed, 19 skipped.
   - 2026-11-16: source-only `validate [--strict] [--drafts-clean]` is shipped (ADR-028). It never touches `states/` (I19). Baseline after PR 11: 925 passed, 21 skipped; 930 passed, 21 skipped after merging `main` with #20 (Windows 11, Python 3.11.9). Running it in the install smoke test is follow-up #87.
-- [ ] Concurrency tests and the fault-injection suite (#11, #12, #31, #32, #33), plus lock and file-mode follow-ups (#79).
+- [x] Concurrency tests for concurrent `upgrade` runs (#11): `tests/integration/test_concurrent_upgrade.py` runs two real processes doing `upgrade head --env dev` on one project; exactly one applies the pending revisions, the other sees nothing to do or fails closed; `prompts` equals replay of the applied ledger prefix with no duplicate ledger rows. Passes on Windows, Linux and macOS CI (no sleeps-as-synchronization). Baseline: 933 passed, 22 skipped (Windows 11, Python 3.11.9).
+- [ ] The rest of the fault-injection suite (#12, #31, #32, #33), plus lock and file-mode follow-ups (#79).
 - [x] README quick-start commands run as a CLI smoke test against a temporary project (#21).
 - [ ] Append-only events table (#14); `rebase` for unapplied revisions (#15). Both are RFCs and need an accepted ADR first.
 
