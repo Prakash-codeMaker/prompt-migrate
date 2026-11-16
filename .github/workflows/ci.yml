@@ -16,6 +16,27 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
+  type-check:
+    # Static type checking (issue #20). The dev extra installs mypy; the config
+    # lives in pyproject.toml under [tool.mypy]. The matrix matches the Docker job; 3.11 is
+    # supported but not in the CI matrix. Runtime dependencies stay stdlib-only.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m mypy src
   docker-all-in-one:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -99,12 +120,13 @@ jobs:
     # The one check branch protection requires, so the matrix can change without editing protection rules.
     # always() makes it report even when a needed job fails; a skipped job only counts on schedule/dispatch runs.
     if: always()
-    needs: [docker-all-in-one, native-test, native-test-extended]
+    needs: [type-check, docker-all-in-one, native-test, native-test-extended]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Fail unless every needed job passed
         if: >-
           contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') ||
-          needs.docker-all-in-one.result != 'success' || needs.native-test.result != 'success'
+          needs.type-check.result != 'success' || needs.docker-all-in-one.result != 'success' ||
+          needs.native-test.result != 'success'
         run: exit 1

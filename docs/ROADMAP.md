@@ -41,9 +41,10 @@
   - 2026-11-14: `revision` writes through `project.write_new_file` under the project lock: no overwrite, no partial file where hard links are supported, colliding ids regenerated (I17). CLI_SPEC notes the no-hard-link fallback is not crash-atomic. New files get the umask mode from the OS at creation; the process umask is never read or changed. Baseline after PR 10: 883 passed, 19 skipped.
 - [x] CLI `--version` flag: prints package version via `importlib.metadata` with fallback to `__version__` (PR 70, #16).
 - [x] Package-install smoke tests (#13, PR #67): wheel and sdist install into separate virtual environments outside the checkout, then run a full CLI round trip. The import guard also verifies namespace package portions (PR #78). Baseline on `main` at `059a1b9`: 890 passed, 19 skipped (Windows 11, Python 3.11.9).
+- [x] Static type checking (#20): `mypy` runs over `src/` in lenient mode with the config in `pyproject.toml`, CI's `type-check` job covers Python 3.10/3.12/3.13, and the real type errors it found are fixed; the gate checks every CI platform from any host. `mypy` is a dev-only dependency capped at one minor release (`>=2.4,<2.5`); runtime stays stdlib-only. Baseline: 913 passed, 3 skipped (Linux, Python 3.13.18).
 - [x] `validate` command (#10).
   - 2026-11-16: `StrictValidationError` (exit 3) is added. Baseline: 893 passed, 19 skipped.
-  - 2026-11-16: source-only `validate [--strict] [--drafts-clean]` is shipped (ADR-028). It never touches `states/` (I19). Baseline after PR 11: 925 passed, 21 skipped (Windows 11, Python 3.11.9). Running it in the install smoke test is follow-up #87.
+  - 2026-11-16: source-only `validate [--strict] [--drafts-clean]` is shipped (ADR-028). It never touches `states/` (I19). Baseline after PR 11: 925 passed, 21 skipped; 930 passed, 21 skipped after merging `main` with #20 (Windows 11, Python 3.11.9). Running it in the install smoke test is follow-up #87.
 - [ ] Concurrency tests and the fault-injection suite (#11, #12, #31, #32, #33), plus lock and file-mode follow-ups (#79).
 - [x] README quick-start commands run as a CLI smoke test against a temporary project (#21).
 - [ ] Append-only events table (#14); `rebase` for unapplied revisions (#15). Both are RFCs and need an accepted ADR first.

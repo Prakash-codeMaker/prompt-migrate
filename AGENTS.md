@@ -18,12 +18,13 @@ Breaking one of these does the most damage. Details are under Invariants.
 Run from the repository root. `pyproject.toml` sets `pythonpath = ["src"]` for pytest, so the editable install is optional for tests.
 
 ```bash
-python -m pip install -e ".[dev]"                        # dev install: pytest, hypothesis, pytest-cov
+python -m pip install -e ".[dev]"                        # dev install: pytest, hypothesis, pytest-cov, mypy
 python -m pytest -q                                      # whole suite (required before every commit)
 python -m pytest tests/unit                              # one suite: unit, integration, contract, security
 python -m pytest tests/test_core.py::PromptMigrateTests::test_state_drift_detected   # one test
 python -m pytest -k restamp                              # tests matching a name
 python -m pytest --cov=promptmigrate                     # coverage (local only, no percentage gate)
+python -m mypy src                                       # lenient static type check (config in pyproject.toml)
 PYTHONPATH=src python -m unittest discover -s tests -v   # the original 7 unittest tests
 PYTHONPATH=src python -m promptmigrate --project <dir> history   # CLI from source
 docker build -f Dockerfile.ci --build-arg PYTHON_VERSION=3.12 -t promptmigrate-ci . && docker run --rm promptmigrate-ci   # Linux CI job, locally
@@ -31,7 +32,7 @@ docker build -f Dockerfile.ci --build-arg PYTHON_VERSION=3.12 -t promptmigrate-c
 
 - PowerShell: set `$env:PYTHONPATH = 'src'` instead of the `PYTHONPATH=src` prefix.
 - WSL or no usable `python`: prefix commands with `uv run --extra dev`, e.g. `uv run --extra dev python -m pytest -q`.
-- No linter, formatter or type checker is configured yet (issues #19, #20 and #37). Don't add one outside those issues.
+- mypy is the only static checker (#20). No linter or formatter is configured yet (issues #19 and #37). Don't add one outside those issues.
 
 ## Repository structure
 
@@ -133,7 +134,7 @@ Git:
 
 **Merge gate:** a PR merges only when all of these hold:
 
-1. The `ci-pass` check of `.github/workflows/ci.yml` is green. It passes only when every PR job passed: Linux (Docker) on Python 3.10, 3.12 and 3.13 with the package smoke test, Windows on 3.10 and 3.13, and macOS on 3.13. The remaining Windows/macOS legs run weekly and on manual dispatch; a red weekly run is fixed before the next merge. A red or skipped job blocks the merge, and flaky tests are fixed, not re-run until they pass.
+1. The `ci-pass` check of `.github/workflows/ci.yml` is green. It passes only when every PR job passed: the mypy `type-check` on Python 3.10, 3.12 and 3.13, Linux (Docker) on Python 3.10, 3.12 and 3.13 with the package smoke test, Windows on 3.10 and 3.13, and macOS on 3.13. The remaining Windows/macOS legs run weekly and on manual dispatch; a red weekly run is fixed before the next merge. A red or skipped job blocks the merge, and flaky tests are fixed, not re-run until they pass.
 2. The branch is up to date with `main`, so CI ran against the code that will land.
 3. Every review thread is resolved. A maintainer reviews each outside contribution before merging it. GitHub requires no approval while there is a single maintainer, because GitHub does not let an author approve their own PR; raise the required approvals to 1 when a second maintainer joins.
 4. The PR description includes the test command, its real output and the OS/Python version it was run on. Claims about a platform are backed by that platform's CI job, never by a local run on another OS.
@@ -146,7 +147,7 @@ Git:
 ## Current status (verified 2026-11-16)
 
 - Shipped: `init`, `revision`, `history`, `diff`, `current`, `upgrade`, `downgrade`, `plan`, `check`, `restamp`, `validate`, `get`, `env add`, `env list`; `--output json`; exit codes 0–5.
-- Windows 11 / Python 3.11.9: `python -m pytest -q` → `925 passed, 21 skipped, 33 warnings` (host symlink, case-insensitivity and POSIX-permission skips); unittest → `Ran 7 tests ... OK`. CI: Linux Docker on Python 3.10/3.12/3.13, native Windows 3.10/3.13 and macOS 3.13 on every PR and `main` push; the full Windows/macOS 3×3 matrix weekly.
+- Windows 11 / Python 3.11.9: `python -m pytest -q` → `930 passed, 21 skipped, 33 warnings` (host symlink, case-insensitivity and POSIX-permission skips); unittest → `Ran 7 tests ... OK`. CI: Linux Docker on Python 3.10/3.12/3.13, native Windows 3.10/3.13 and macOS 3.13 on every PR and `main` push; the full Windows/macOS 3×3 matrix weekly.
 - Not shipped (never claim otherwise): `eval`, `export`, `promote`, `reconcile`, cloud adapters, SDK, Postgres, RBAC, signed revisions, real production activation.
 
 ## References

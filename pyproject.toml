@@ -25,7 +25,7 @@ classifiers = [
 promptmigrate = "promptmigrate.cli:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "hypothesis>=6", "pytest-cov>=5"]
+dev = ["pytest>=8", "hypothesis>=6", "pytest-cov>=5", "mypy>=2.4,<2.5"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -33,3 +33,22 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+# Static type checking (issue #20). Start in lenient mode: check the annotated
+# code under src/ without demanding full annotation coverage. Runtime stays
+# stdlib-only; mypy is a dev-only tool. No python_version is pinned here, so the
+# checker follows whatever interpreter CI / the developer runs (3.10-3.13).
+# The dev extra caps mypy at one minor release: a new minor can add checks and turn
+# main red with no code change, so raise the cap deliberately.
+[tool.mypy]
+files = ["src"]
+# The goal of #20 is a working gate over the annotated code, not full annotation
+# coverage. Missing imports are reported (nothing under src/ needs a stub today); the
+# switches below stay lenient until the annotations reach that bar, and each one can be
+# tightened on its own.
+ignore_missing_imports = false
+check_untyped_defs = false       # bodies of unannotated functions are not checked yet
+disallow_untyped_defs = false    # annotated code only; demanding annotations everywhere is a later step
+warn_return_any = false          # returns of Any are expected until the protocols above are typed
+warn_unused_ignores = true       # a stale # type: ignore should surface, not linger
+warn_unused_configs = false      # keeps the config forward-compatible across mypy minors

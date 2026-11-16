@@ -95,6 +95,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if error is not None:
             return output.emit_error(error, args.output, *output.describe(args), warned)
+        # Reaching here means `execute` returned instead of raising, so `result` is a Result.
+        # Narrowing it with an assert keeps the call type-checked without a cast; a shared
+        # CommandResult protocol would remove the need for the narrowing entirely.
+        assert result is not None, "emit_result reached without a result"
         output.emit_result(result, args.output, warned)
     except OSError as e:  # writing the result failed: a closed pipe or a full destination
         print(f"Error: {e}", file=sys.stderr)
