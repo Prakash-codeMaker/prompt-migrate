@@ -4,6 +4,7 @@ All notable changes to PromptMigrate. Before 1.0, CLI and file contracts may cha
 
 ## Unreleased
 
+- Run the README quick-start commands as a cross-platform CLI smoke test against an empty temporary project (#21).
 - Restructured `AGENTS.md` after large open-source agent files (Sentry, Apache Airflow): it declares itself the source of truth, then runs Critical rules, Setup and commands, Repository structure, Architecture boundaries, Invariants, Coding and Testing standards, How to work, Commits and pull requests, Boundaries, Current status and References. No rule was dropped. It also opens with the rules that do the most damage when broken, adds a Working style section adapted from the Karpathy guidelines (`andrej-karpathy-skills`, MIT), and adds a Boundaries section listing what agents must ask about first and must never do. The guidelines live in `AGENTS.md` so every agent gets them; `CLAUDE.md` still only points there.
 - Added Programming Language :: Python :: 3.10, 3.12 and 3.13 classifiers to pyproject.toml to match the CI matrix (Python 3.10, 3.12, 3.13) and requires-python >=3.10.
 - Synced the roadmap with the Phase 1 issues: package-install smoke tests marked done (#13, PR #67), the `--version` baseline corrected, issue numbers added to open items, #21 and #79 listed, and RFC issue numbers added to OPEN_QUESTIONS. Refreshed the verified test baseline in AGENTS.md.

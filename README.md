@@ -41,13 +41,15 @@ python -m pip install -e .
 
 ## Five-minute example
 
-In a separate, empty project directory:
+In a separate, empty project directory, run the example with the starter draft
+that `init` creates. You can edit the draft before generating the first revision.
 
+<!-- quickstart-smoke:start -->
 ```bash
 promptmigrate init
 promptmigrate env list
 promptmigrate env add qa
-# Edit .promptmigrate/drafts/assistant.json with the desired system prompt,
+# Optional: edit .promptmigrate/drafts/assistant.json with the desired system prompt,
 # model, temperature, tool specs, response schema, etc.
 promptmigrate revision -m "initial assistant prompt"
 promptmigrate history
@@ -56,6 +58,7 @@ promptmigrate upgrade head --env dev
 promptmigrate check --env dev --require-head
 promptmigrate get assistant --env dev
 ```
+<!-- quickstart-smoke:end -->
 
 Then edit `.promptmigrate/drafts/assistant.json` and run:
 
