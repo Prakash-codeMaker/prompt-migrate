@@ -145,8 +145,8 @@ Git:
 
 ## Current status (verified 2026-11-16)
 
-- Shipped: `init`, `revision`, `history`, `diff`, `current`, `upgrade`, `downgrade`, `plan`, `check`, `restamp`, `get`, `env add`, `env list`; `--output json`; exit codes 0–5.
-- Windows 11 / Python 3.11.9: `python -m pytest -q` → `890 passed, 19 skipped, 33 warnings` (host symlink, case-insensitivity and POSIX-permission skips); unittest → `Ran 7 tests ... OK`. CI: Linux Docker on Python 3.10/3.12/3.13, native Windows 3.10/3.13 and macOS 3.13 on every PR and `main` push; the full Windows/macOS 3×3 matrix weekly.
+- Shipped: `init`, `revision`, `history`, `diff`, `current`, `upgrade`, `downgrade`, `plan`, `check`, `restamp`, `validate`, `get`, `env add`, `env list`; `--output json`; exit codes 0–5.
+- Windows 11 / Python 3.11.9: `python -m pytest -q` → `925 passed, 21 skipped, 33 warnings` (host symlink, case-insensitivity and POSIX-permission skips); unittest → `Ran 7 tests ... OK`. CI: Linux Docker on Python 3.10/3.12/3.13, native Windows 3.10/3.13 and macOS 3.13 on every PR and `main` push; the full Windows/macOS 3×3 matrix weekly.
 - Not shipped (never claim otherwise): `eval`, `export`, `promote`, `reconcile`, cloud adapters, SDK, Postgres, RBAC, signed revisions, real production activation.
 
 ## References

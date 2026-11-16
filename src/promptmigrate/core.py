@@ -17,11 +17,12 @@ from .commands.plan import plan
 from .commands.restamp import restamp
 from .commands.revision import revision
 from .commands.upgrade import upgrade
+from .commands.validate import validate
 from .draftdiff import draft_diff, redacted_diff
 from .errors import (
     DriftError, InitializationError, IntegrityError, LegacyRevisionWarning, MigrationConflictError, MigrationError,
     PendingRevisionsError, RevisionGraphError, SchemaError, SecretDetectedError, SecretInHistoryWarning,
-    SecretRedactedWarning, StaleAllowlistWarning, StorageError, TargetError,
+    SecretRedactedWarning, StaleAllowlistWarning, StorageError, StrictValidationError, TargetError,
 )
 from .project import ALLOWLIST_FILE, load_allowlist, pretty, read_drafts, require_init, root_dir
 from .protocol import canonical, same
