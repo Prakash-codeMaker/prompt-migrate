@@ -7,14 +7,15 @@ framework.
 
 ## Set up
 
-Python 3.10 or newer. The runtime uses only the standard library; the dev extras add `pytest`, `hypothesis` and
-`pytest-cov`.
+Python 3.10 or newer. The runtime uses only the standard library; the dev extras add `pytest`, `hypothesis`,
+`pytest-cov` and `mypy`.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate                        # Windows PowerShell: .venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
 python -m pytest -q                              # the whole suite
+python -m mypy src                               # lenient type check; CI's type-check job runs it too
 PYTHONPATH=src python -m unittest discover -s tests -v   # the original seven tests
 python -m promptmigrate --project /tmp/demo init # the CLI
 ```
@@ -24,6 +25,7 @@ In PowerShell, after `.venv\Scripts\Activate.ps1`:
 ```powershell
 python -m pip install -e ".[dev]"
 python -m pytest -q
+python -m mypy src
 $env:PYTHONPATH = 'src'; python -m unittest discover -s tests -v
 python -m promptmigrate --project $env:TEMP\demo init
 ```
@@ -85,7 +87,3 @@ Use the issue templates for bugs and feature requests. Report security problems 
 [`SECURITY.md`](SECURITY.md).
 
 Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
-
-## Type checking
-
-`python -m mypy src` runs in CI (`type-check` job) and is part of the `dev` extra. It is a development-only tool: runtime dependencies stay stdlib-only.
