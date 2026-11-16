@@ -4,6 +4,7 @@ All notable changes to PromptMigrate. Before 1.0, CLI and file contracts may cha
 
 ## Unreleased
 
+- Added static type checking: mypy runs over `src/` in lenient mode (config in `pyproject.toml`), a CI `type-check` job covers Python 3.10/3.12/3.13, and the real type errors it found are fixed. `mypy` is a dev-only dependency; runtime stays stdlib-only (#20).
 - Added Programming Language :: Python :: 3.10, 3.12 and 3.13 classifiers to pyproject.toml to match the CI matrix (Python 3.10, 3.12, 3.13) and requires-python >=3.10.
 - Synced the roadmap with the Phase 1 issues: package-install smoke tests marked done (#13, PR #67), the `--version` baseline corrected, issue numbers added to open items, #21 and #79 listed, and RFC issue numbers added to OPEN_QUESTIONS. Refreshed the verified test baseline in AGENTS.md.
 - Package smoke import guard now verifies namespace package portions through `__path__` instead of crashing on their missing `__file__`. CI cancels superseded runs on non-`main` refs through a workflow-level concurrency group, so matrix legs never cancel each other; every `main` run gets its own group and always runs.

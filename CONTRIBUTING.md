@@ -85,3 +85,7 @@ Use the issue templates for bugs and feature requests. Report security problems 
 [`SECURITY.md`](SECURITY.md).
 
 Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Type checking
+
+`python -m mypy src` runs in CI (`type-check` job) and is part of the `dev` extra. It is a development-only tool: runtime dependencies stay stdlib-only.

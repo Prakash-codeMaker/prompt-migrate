@@ -40,10 +40,10 @@ def _project_lock(project_dir: Path) -> Iterator[None]:
         import fcntl
         descriptor = os.open(root, os.O_RDONLY)
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            fcntl.flock(descriptor, fcntl.LOCK_EX)  # type: ignore[attr-defined]  # POSIX-only branch
             try:
                 yield
             finally:
-                fcntl.flock(descriptor, fcntl.LOCK_UN)
+                fcntl.flock(descriptor, fcntl.LOCK_UN)  # type: ignore[attr-defined]  # POSIX-only branch
         finally:
             os.close(descriptor)
