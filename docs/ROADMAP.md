@@ -22,7 +22,7 @@
 
 ### Cycle 1 (PRs 1–6 + 3b)
 
-- [x] Connection lifecycle fix; Linux Docker CI matrix across Python 3.10, 3.12 and 3.13, plus native Windows and macOS jobs (`.github/workflows/ci.yml`). Linux/macOS support is claimed only after a remote CI run passes.
+- [x] Connection lifecycle fix; Linux Docker CI matrix across Python 3.10, 3.12 and 3.13, plus native Windows and macOS jobs (`.github/workflows/ci.yml`). Linux/macOS support is claimed only after a remote CI run passes. (2026-11-16: PRs and `main` run Windows 3.10/3.13 and macOS 3.13; the full native matrix runs weekly; one `ci-pass` check gates merges.)
 - [x] Characterization tests and legacy compatibility fixtures (`tests/fixtures/legacy`, `tests/fixtures/legacy_breaking`).
 - [x] Strict parsing (duplicate keys, NaN, size/depth, symlinks), compatibility tiers, canonical equality (`protocol/`).
 - [x] Heuristic secret safeguard: `revision` blocks, `diff`/`get` redact, reviewed allowlist (`secretscan.py`).
