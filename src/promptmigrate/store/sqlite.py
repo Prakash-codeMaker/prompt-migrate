@@ -9,6 +9,7 @@ from contextlib import contextmanager
 import os
 from pathlib import Path
 import sqlite3
+import sys
 from urllib.parse import quote
 
 from .. import project, protocol
@@ -19,7 +20,7 @@ from . import lock
 def _is_linklike(path: Path) -> bool:
     if path.is_symlink():
         return True
-    if os.name == "nt":
+    if sys.platform == "win32":  # not os.name: mypy only narrows sys.platform
         try:
             return bool(path.stat(follow_symlinks=False).st_file_attributes & 0x400)
         except FileNotFoundError:

@@ -41,7 +41,7 @@
   - 2026-11-14: `revision` writes through `project.write_new_file` under the project lock: no overwrite, no partial file where hard links are supported, colliding ids regenerated (I17). CLI_SPEC notes the no-hard-link fallback is not crash-atomic. New files get the umask mode from the OS at creation; the process umask is never read or changed. Baseline after PR 10: 883 passed, 19 skipped.
 - [x] CLI `--version` flag: prints package version via `importlib.metadata` with fallback to `__version__` (PR 70, #16).
 - [x] Package-install smoke tests (#13, PR #67): wheel and sdist install into separate virtual environments outside the checkout, then run a full CLI round trip. The import guard also verifies namespace package portions (PR #78). Baseline on `main` at `059a1b9`: 890 passed, 19 skipped (Windows 11, Python 3.11.9).
-- [x] Static type checking (#20): `mypy` runs over `src/` in lenient mode with the config in `pyproject.toml`, CI's `type-check` job covers Python 3.10/3.12/3.13, and the real type errors it found are fixed. `mypy` is a dev-only dependency; runtime stays stdlib-only. Baseline: 894 passed, 19 skipped.
+- [x] Static type checking (#20): `mypy` runs over `src/` in lenient mode with the config in `pyproject.toml`, CI's `type-check` job covers Python 3.10/3.12/3.13, and the real type errors it found are fixed; the gate checks every CI platform from any host. `mypy` is a dev-only dependency; runtime stays stdlib-only. Baseline: 896 passed, 19 skipped.
 - [ ] `validate` command (#10).
 - [ ] Concurrency tests and the fault-injection suite (#11, #12, #31, #32, #33), plus lock and file-mode follow-ups (#79).
 - [ ] README commands as executable smoke tests (#21).

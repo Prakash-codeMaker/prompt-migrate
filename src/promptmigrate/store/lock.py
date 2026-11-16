@@ -6,6 +6,7 @@ from contextlib import contextmanager
 import hashlib
 import os
 from pathlib import Path
+import sys
 
 from .. import project
 
@@ -14,7 +15,8 @@ from .. import project
 def _project_lock(project_dir: Path) -> Iterator[None]:
     """Serialize project metadata changes, revision writes, and initial environment database setup."""
     root = project.require_init(project_dir)
-    if os.name == "nt":
+    # sys.platform, not os.name: mypy narrows it, so each branch is only checked for its own platform
+    if sys.platform == "win32":
         import ctypes
         digest = hashlib.sha256(os.fsencode(root)).hexdigest()
         kernel = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -40,10 +42,10 @@ def _project_lock(project_dir: Path) -> Iterator[None]:
         import fcntl
         descriptor = os.open(root, os.O_RDONLY)
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_EX)  # type: ignore[attr-defined]  # POSIX-only branch
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
             try:
                 yield
             finally:
-                fcntl.flock(descriptor, fcntl.LOCK_UN)  # type: ignore[attr-defined]  # POSIX-only branch
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
         finally:
             os.close(descriptor)

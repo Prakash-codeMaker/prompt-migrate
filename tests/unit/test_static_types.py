@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 import pytest
@@ -39,9 +38,9 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _run_mypy(target: Path) -> subprocess.CompletedProcess[str]:
+def _run_mypy(target: Path, platform: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-m", "mypy", str(target)],
+        [sys.executable, "-m", "mypy", "--platform", platform, str(target)],
         cwd=str(REPO),
         capture_output=True,
         text=True,
@@ -50,6 +49,7 @@ def _run_mypy(target: Path) -> subprocess.CompletedProcess[str]:
 
 def test_pyproject_declares_mypy_config_for_src() -> None:
     """The config lives in pyproject.toml and points mypy at src/ (issue #20 contract)."""
+    tomllib = pytest.importorskip("tomllib")  # stdlib from 3.11; the 3.12/3.13 jobs cover this check
     data = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
     cfg = data.get("tool", {}).get("mypy")
     assert cfg is not None, "pyproject.toml must have a [tool.mypy] section"
@@ -58,9 +58,12 @@ def test_pyproject_declares_mypy_config_for_src() -> None:
     assert "src" in [str(x) for x in files], "mypy files must include src/"
 
 
-def test_mypy_passes_on_real_src() -> None:
-    """GREEN gate: the configured lenient mypy run on src/ succeeds."""
-    proc = _run_mypy(SRC)
+# Every CI platform is checked from any host: platform-specific branches (Windows
+# ctypes, POSIX fcntl) must type-check everywhere, not only where the suite happens to run.
+@pytest.mark.parametrize("platform", ["win32", "linux", "darwin"])
+def test_mypy_passes_on_real_src(platform: str) -> None:
+    """GREEN gate: the configured lenient mypy run on src/ succeeds for each CI platform."""
+    proc = _run_mypy(SRC, platform)
     assert proc.returncode == 0, f"mypy src failed:\n{proc.stdout}\n{proc.stderr}"
 
 
