@@ -18,7 +18,7 @@
 
 ## Phase 1 — Harden migration core (first implementation priority)
 
-**Status:** in progress. Phase 1 is delivered in cycles. Cycle 1 is complete; cycle 2 is under way (v0 frozen, ADR-025; protocol v1, ADR-026; `restamp`, ADR-027; no-clobber revision writes, PR 10). The integrity guidance now distinguishes v0 raw-byte checks from v1 canonical-content checks. Package-install smoke tests are shipped (PR #67, #13; hardened in PR #78); CI passed on `main` at `059a1b9`. Finishing cycle 2 does **not** finish Phase 1.
+**Status:** in progress. Phase 1 is delivered in cycles. Cycle 1 is complete; cycle 2 is under way (v0 frozen, ADR-025; protocol v1, ADR-026; `restamp`, ADR-027; no-clobber revision writes, PR 10; source-only `validate`, ADR-028). The integrity guidance now distinguishes v0 raw-byte checks from v1 canonical-content checks. Package-install smoke tests are shipped (PR #67, #13; hardened in PR #78); CI passed on `main` at `059a1b9`. Finishing cycle 2 does **not** finish Phase 1.
 
 ### Cycle 1 (PRs 1–6 + 3b)
 
@@ -42,7 +42,9 @@
 - [x] CLI `--version` flag: prints package version via `importlib.metadata` with fallback to `__version__` (PR 70, #16).
 - [x] Package-install smoke tests (#13, PR #67): wheel and sdist install into separate virtual environments outside the checkout, then run a full CLI round trip. The import guard also verifies namespace package portions (PR #78). Baseline on `main` at `059a1b9`: 890 passed, 19 skipped (Windows 11, Python 3.11.9).
 - [x] Static type checking (#20): `mypy` runs over `src/` in lenient mode with the config in `pyproject.toml`, CI's `type-check` job covers Python 3.10/3.12/3.13, and the real type errors it found are fixed; the gate checks every CI platform from any host. `mypy` is a dev-only dependency capped at one minor release (`>=2.4,<2.5`); runtime stays stdlib-only. Baseline: 913 passed, 3 skipped (Linux, Python 3.13.18).
-- [ ] `validate` command (#10).
+- [x] `validate` command (#10).
+  - 2026-11-16: `StrictValidationError` (exit 3) is added. Baseline: 893 passed, 19 skipped.
+  - 2026-11-16: source-only `validate [--strict] [--drafts-clean]` is shipped (ADR-028). It never touches `states/` (I19). Baseline after PR 11: 925 passed, 21 skipped; 930 passed, 21 skipped after merging `main` with #20 (Windows 11, Python 3.11.9). Running it in the install smoke test is follow-up #87.
 - [ ] Concurrency tests and the fault-injection suite (#11, #12, #31, #32, #33), plus lock and file-mode follow-ups (#79).
 - [x] README quick-start commands run as a CLI smoke test against a temporary project (#21).
 - [ ] Append-only events table (#14); `rebase` for unapplied revisions (#15). Both are RFCs and need an accepted ADR first.
@@ -88,4 +90,4 @@ No SaaS dashboard, no visual prompt editor, no paid cloud control plane, no dire
 
 ## First next step
 
-Phase 1 cycle 2 is under way. Protocol v1 is shipped (ADR-026), so new revisions are immune to formatting-only changes; integrity guidance now reflects the separate v0 and v1 rules. `restamp`, an explicit, opt-in re-stamp of v0 ledger rows whose mismatch is line endings only, is shipped (ADR-027); v0 hash semantics are unchanged. Verifying commands name `restamp` when a mismatch is line endings only. Revision files are never overwritten, and are written atomically where hard links are supported (PR 10); the no-hard-link fallback is not crash-atomic. Package-install smoke tests are shipped (PR #67). The README quick-start runs as a separate CLI smoke test (#21). Next: the source-only `validate` command (#10). Use [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) and [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md), and keep to small tested PRs.
+Phase 1 cycle 2 is under way. Protocol v1 is shipped (ADR-026), so new revisions are immune to formatting-only changes; integrity guidance now reflects the separate v0 and v1 rules. `restamp`, an explicit, opt-in re-stamp of v0 ledger rows whose mismatch is line endings only, is shipped (ADR-027); v0 hash semantics are unchanged. Verifying commands name `restamp` when a mismatch is line endings only. Revision files are never overwritten, and are written atomically where hard links are supported (PR 10); the no-hard-link fallback is not crash-atomic. Package-install smoke tests are shipped (PR #67). The README quick-start runs as a separate CLI smoke test (#21). The source-only `validate` command is shipped (#10, ADR-028). Next: the concurrency tests and fault-injection suite (#11, #12, #31, #32, #33), with the lock and file-mode follow-ups (#79). Use [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) and [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md), and keep to small tested PRs.
