@@ -129,8 +129,8 @@ def load_revisions(project_dir: Path) -> list[Revision]:
             children.setdefault(r.down_revision, []).append(r)
     if any(len(kids) > 1 for kids in children.values()):
         raise RevisionGraphError("Branching detected. MVP only supports one linear head; resolve in Git before deploying")
-    result = []
-    current = roots[0]
+    result: list[Revision] = []
+    current: Revision | None = roots[0]
     while current is not None and current.revision not in {r.revision for r in result}:
         result.append(current)
         current = children.get(current.revision, [None])[0]
