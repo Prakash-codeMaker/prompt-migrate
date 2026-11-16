@@ -62,6 +62,18 @@ def smoke(artifact: Path) -> None:
         project = root / "project"
         project.mkdir()
 
+        def run_text(*args):
+            result = subprocess.run(
+                [str(cli), *args], cwd=project,
+                env=clean_env(), text=True, capture_output=True,
+            )
+            if result.returncode:
+                print(result.stdout, end="")
+                print(result.stderr, file=sys.stderr, end="")
+                result.check_returncode()
+            print(f"{artifact.name}: {' '.join(args)} passed", flush=True)
+            return result.stdout
+
         def run(*args):
             result = subprocess.run(
                 [str(cli), "--output", "json", *args], cwd=project,
@@ -83,6 +95,10 @@ def smoke(artifact: Path) -> None:
             json.dumps(config), encoding="utf-8",
         )
         run("revision", "-m", "package smoke")
+        if not run_text("validate").startswith("OK: "):
+            raise RuntimeError("Installed validate did not print an OK: line")
+        if run("validate")["revisions"] != 1:
+            raise RuntimeError("Installed validate did not report the round-trip revision")
         run("upgrade")
         run("check", "--require-head")
         history = run("history")

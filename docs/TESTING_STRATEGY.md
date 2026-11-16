@@ -169,8 +169,10 @@ python -m pip install build
 
 Each artifact is installed with `--no-deps` in its own temporary virtual environment outside the checkout.
 The runner clears `PYTHONPATH` and `PYTHONHOME`, disables user site packages, and rejects imported PromptMigrate modules outside that environment.
-It invokes the installed console script for `init`, `revision`, `upgrade`, `check --require-head`, `history`, and `get`.
-Every command must exit successfully and return the JSON success envelope; the final config must match the draft.
+It invokes the installed console script for `init`, `revision`, `validate`, `upgrade`, `check --require-head`, `history`, and `get`.
+`validate` runs on the round-trip project in text mode, where it must exit 0 and print an `OK: ` line, and in JSON mode,
+where the envelope must report `data.revisions`. The smoke test fails if the installed package cannot run `validate`.
+Every other command must exit successfully and return the JSON success envelope; the final config must match the draft.
 No runtime dependency is added. The build frontend is CI/development tooling only.
 
 `tests/integration/test_package_install_isolation.py` checks the import guard in real temporary interpreters,
