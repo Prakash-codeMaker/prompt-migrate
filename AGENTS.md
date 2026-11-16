@@ -133,7 +133,7 @@ Git:
 
 **Merge gate:** a PR merges only when all of these hold:
 
-1. Every CI job in `.github/workflows/ci.yml` is green: Linux (Docker), Windows and macOS on Python 3.10, 3.12 and 3.13. A red or skipped job blocks the merge, and flaky tests are fixed, not re-run until they pass.
+1. The `ci-pass` check of `.github/workflows/ci.yml` is green. It passes only when every PR job passed: Linux (Docker) on Python 3.10, 3.12 and 3.13 with the package smoke test, Windows on 3.10 and 3.13, and macOS on 3.13. The remaining Windows/macOS legs run weekly and on manual dispatch; a red weekly run is fixed before the next merge. A red or skipped job blocks the merge, and flaky tests are fixed, not re-run until they pass.
 2. The branch is up to date with `main`, so CI ran against the code that will land.
 3. Every review thread is resolved. A maintainer reviews each outside contribution before merging it. GitHub requires no approval while there is a single maintainer, because GitHub does not let an author approve their own PR; raise the required approvals to 1 when a second maintainer joins.
 4. The PR description includes the test command, its real output and the OS/Python version it was run on. Claims about a platform are backed by that platform's CI job, never by a local run on another OS.
@@ -146,7 +146,7 @@ Git:
 ## Current status (verified 2026-11-16)
 
 - Shipped: `init`, `revision`, `history`, `diff`, `current`, `upgrade`, `downgrade`, `plan`, `check`, `restamp`, `get`, `env add`, `env list`; `--output json`; exit codes 0–5.
-- Windows 11 / Python 3.11.9: `python -m pytest -q` → `890 passed, 19 skipped, 33 warnings` (host symlink, case-insensitivity and POSIX-permission skips); unittest → `Ran 7 tests ... OK`. CI: Linux Docker plus native Windows and macOS, Python 3.10/3.12/3.13.
+- Windows 11 / Python 3.11.9: `python -m pytest -q` → `890 passed, 19 skipped, 33 warnings` (host symlink, case-insensitivity and POSIX-permission skips); unittest → `Ran 7 tests ... OK`. CI: Linux Docker on Python 3.10/3.12/3.13, native Windows 3.10/3.13 and macOS 3.13 on every PR and `main` push; the full Windows/macOS 3×3 matrix weekly.
 - Not shipped (never claim otherwise): `eval`, `export`, `promote`, `reconcile`, cloud adapters, SDK, Postgres, RBAC, signed revisions, real production activation.
 
 ## References
