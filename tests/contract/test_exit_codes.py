@@ -16,6 +16,7 @@ EXPECTED = {
     errors.PendingRevisionsError: (1, "error"),
     errors.SchemaError: (3, "schema"),
     errors.SecretDetectedError: (3, "schema"),
+    errors.StrictValidationError: (3, "schema"),
     errors.RevisionGraphError: (3, "schema"),
     errors.DriftError: (4, "conflict"),
     errors.IntegrityError: (4, "conflict"),

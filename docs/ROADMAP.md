@@ -42,6 +42,7 @@
 - [x] CLI `--version` flag: prints package version via `importlib.metadata` with fallback to `__version__` (PR 70, #16).
 - [x] Package-install smoke tests (#13, PR #67): wheel and sdist install into separate virtual environments outside the checkout, then run a full CLI round trip. The import guard also verifies namespace package portions (PR #78). Baseline on `main` at `059a1b9`: 890 passed, 19 skipped (Windows 11, Python 3.11.9).
 - [ ] `validate` command (#10).
+  - 2026-11-16: in progress on `feat/validate-command`. `StrictValidationError` (exit 3) is added. Baseline: 893 passed, 19 skipped.
 - [ ] Concurrency tests and the fault-injection suite (#11, #12, #31, #32, #33), plus lock and file-mode follow-ups (#79).
 - [x] README quick-start commands run as a CLI smoke test against a temporary project (#21).
 - [ ] Append-only events table (#14); `rebase` for unapplied revisions (#15). Both are RFCs and need an accepted ADR first.

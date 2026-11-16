@@ -13,6 +13,10 @@ class SchemaError(MigrationError):
     """A draft, revision file or command input is malformed or breaks a validation rule."""
 
 
+class StrictValidationError(SchemaError):
+    """`validate --strict` saw at least one warning."""
+
+
 class EnvironmentNotDeclaredError(MigrationError):
     """The requested environment is not present in the declared environment manifest."""
 
