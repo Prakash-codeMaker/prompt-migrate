@@ -275,6 +275,33 @@ def test_restamp_defaults_to_dev(project, capsys):
     assert run_cli(capsys, project, "restamp")[:2] == (0, f"Restamped 1 revision(s) in dev: {A}\n")
 
 
+def test_restamp_holds_project_lock_even_for_base_state(project, monkeypatch):
+    """I20: restamp checks the env DB exists under the project lock, even when it returns base state.
+
+    Currently the `exists()` check runs before `connect_write` acquires the lock, so for a base
+    environment (no state file) restamp never touches the lock at all. Moving the check inside the
+    lock makes it race-free against a concurrent creator/remover of the state file.
+    """
+    from contextlib import contextmanager
+
+    import promptmigrate.store as store
+
+    install_fixture(project, "crlf", "crlf")  # no state file: base environment
+    locked = []
+    real_lock = store._project_lock
+
+    @contextmanager
+    def spy(project_dir):
+        locked.append(True)
+        with real_lock(project_dir):
+            yield
+
+    monkeypatch.setattr(store, "_project_lock", spy)
+    assert restamp(project, "dev") == []
+    assert not db_path(project).exists()
+    assert locked, "restamp must acquire the project lock even for base state"
+
+
 def test_core_facade_exports_restamp():
     assert core.restamp is restamp
 

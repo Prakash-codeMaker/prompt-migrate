@@ -76,13 +76,15 @@ def display_name(project_dir: Path, env: str) -> str:
 
 
 def _new_file_mode(path: Path) -> int:
-    """Keep an existing file's permission bits; give a new file the usual umask-derived mode."""
+    """Keep an existing file's permission bits; give a new file mode 0o666 so the OS applies the umask.
+
+    We never read or restore the process umask here: `os.umask` is process-wide, so reading it means
+    setting it, which races with other threads in an embedding app.
+    """
     try:
         return stat.S_IMODE(path.stat().st_mode)
     except FileNotFoundError:
-        umask = os.umask(0)
-        os.umask(umask)
-        return 0o666 & ~umask
+        return 0o666
 
 
 def _write_environments(project_dir: Path, environments: dict[str, dict[str, Any]]) -> Path:

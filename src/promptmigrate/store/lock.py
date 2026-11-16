@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 
 from .. import project
+from ..errors import StorageError
 
 
 @contextmanager
@@ -28,11 +29,11 @@ def _project_lock(project_dir: Path) -> Iterator[None]:
         kernel.CloseHandle.argtypes = (ctypes.c_void_p,)
         handle = kernel.CreateMutexW(None, False, f"Global\\PromptMigrate-{digest}")
         if not handle:
-            raise OSError(ctypes.get_last_error(), "Could not create environment manifest mutex")
+            raise StorageError(ctypes.get_last_error(), "Could not create environment manifest mutex") from None
         result = kernel.WaitForSingleObject(handle, 0xFFFFFFFF)
         if result not in (0, 0x80):
             kernel.CloseHandle(handle)
-            raise OSError(ctypes.get_last_error(), "Could not acquire environment manifest mutex")
+            raise StorageError(ctypes.get_last_error(), "Could not acquire environment manifest mutex") from None
         try:
             yield
         finally:

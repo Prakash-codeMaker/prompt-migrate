@@ -441,6 +441,46 @@ def test_manifest_rewrite_keeps_permissions(project, existing_mode):
     assert stat.S_IMODE(path.stat().st_mode) == (existing_mode or 0o644)
 
 
+def test_new_file_mode_never_touches_the_process_umask(project, monkeypatch):
+    """I20: `_new_file_mode` must not read/restore the process umask; reading it means setting it,
+    which races with other threads in an embedding app. `write_new_file` already uses O_EXCL + 0o666
+    so the OS applies the umask at creation instead."""
+    from promptmigrate.store import environments as env_module
+
+    seen = []
+
+    def recording_umask(*_args):
+        seen.append(True)
+        return 0o022
+
+    monkeypatch.setattr(os, "umask", recording_umask)
+
+    new_path = pm_dir(project) / "nonexistent.json"
+    assert env_module._new_file_mode(new_path) == 0o666
+    assert not seen, "_new_file_mode must not call os.umask for a new file"
+
+    # existing file keeps its bits without touching the umask
+    existing = pm_dir(project) / "environments.json"
+    env_module._new_file_mode(existing)
+    assert not seen, "_new_file_mode must not call os.umask for an existing file"
+
+
+def test_manifest_rewrite_does_not_touch_process_umask(project, monkeypatch):
+    """I20 / PR 10 follow-up: `_new_file_mode` must not read/restore `os.umask` (process-wide)."""
+    import promptmigrate.store.environments as env_mod
+
+    calls = []
+    def spy(*args, **kwargs):
+        calls.append((args, kwargs))
+        return 0o022
+    monkeypatch.setattr(env_mod.os, "umask", spy)
+    path = pm_dir(project) / "environments.json"
+    if path.exists():
+        path.unlink()
+    core.env_add(project, "qa")
+    assert calls == [], f"_new_file_mode must not call os.umask; calls: {calls}"
+
+
 @pytest.mark.parametrize("command", ["check", "get_config"])
 def test_read_only_verification_uses_one_snapshot(project, monkeypatch, command):
     core.revision(project, "initial")
