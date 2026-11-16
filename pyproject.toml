@@ -40,10 +40,11 @@ pythonpath = ["src"]
 # checker follows whatever interpreter CI / the developer runs (3.10-3.13).
 [tool.mypy]
 files = ["src"]
-# Each switch below is deliberately at its lenient value: the goal of #20 is a working
-# gate over the annotated code, not full annotation coverage. Tightening any of them is
-# a follow-up once the annotations reach that bar, and each one can be flipped alone.
-ignore_missing_imports = true    # no stubs for some stdlib-adjacent modules yet
+# The goal of #20 is a working gate over the annotated code, not full annotation
+# coverage. Missing imports are reported (nothing under src/ needs a stub today); the
+# switches below stay lenient until the annotations reach that bar, and each one can be
+# tightened on its own.
+ignore_missing_imports = false
 check_untyped_defs = false       # bodies of unannotated functions are not checked yet
 disallow_untyped_defs = false    # annotated code only; demanding annotations everywhere is a later step
 warn_return_any = false          # returns of Any are expected until the protocols above are typed

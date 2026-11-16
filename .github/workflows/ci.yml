@@ -12,7 +12,8 @@ concurrency:
 jobs:
   type-check:
     # Static type checking (issue #20). The dev extra installs mypy; the config
-    # lives in pyproject.toml under [tool.mypy]. Runtime dependencies stay stdlib-only.
+    # lives in pyproject.toml under [tool.mypy]. The matrix matches the other
+    # jobs: 3.11 is not in the project's supported set. Runtime dependencies stay stdlib-only.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:

@@ -5,7 +5,6 @@ import importlib.metadata
 import sqlite3
 import sys
 import warnings
-from typing import Any, cast
 from . import __version__, output
 from .commands import check, current, diff, downgrade, env, get, history, init, plan, restamp, revision, upgrade
 from .errors import PromptMigrateWarning
@@ -91,9 +90,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if error is not None:
             return output.emit_error(error, args.output, *output.describe(args), warned)
-        # TODO(#20 follow-up): replace this cast with a shared CommandResult protocol
-        # or union so command return types are checked at the dispatch point.
-        output.emit_result(cast(Any, result), args.output, warned)
+        # Reaching here means `execute` returned instead of raising, so `result` is a Result.
+        # Narrowing it with an assert keeps the call type-checked without a cast; a shared
+        # CommandResult protocol would remove the need for the narrowing entirely.
+        assert result is not None, "emit_result reached without a result"
+        output.emit_result(result, args.output, warned)
     except OSError as e:  # writing the result failed: a closed pipe or a full destination
         print(f"Error: {e}", file=sys.stderr)
         return 5
