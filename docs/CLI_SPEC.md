@@ -23,6 +23,7 @@ Familiar to Alembic users, transparent in CI, safe by default. Commands distingu
 | `promptmigrate check --env dev` | Check applied integrity/state drift | Does not require env at source head; warns about secrets in history and stale allowlist entries |
 | `promptmigrate check --env dev --require-head` | Also require no pending revisions | Helpful for CI |
 | `promptmigrate restamp --env dev` | Accept line-ending-only changes to applied v0 revisions | Mutating and all or nothing: re-stamps the ledger checksum of each applied v0 revision whose stored digest equals its current file normalised to all-LF or all-CRLF, computed only for a UTF-8 file, then verifies the environment like `check`. Any other mismatch, any v1 row, a non-UTF-8 v0 file, or drift fails with the normal error and writes nothing. No state database means nothing to do; nothing is created, and no manifest is adopted. Prints `Restamped <n> revision(s) in <env>: <ids>` (`(none)` when n = 0). Leaves no audit record until the cycle-3 events table (ADR-027) |
+| `promptmigrate validate [--strict] [--drafts-clean]` | Check source files only, for CI | Loads revision history (both format versions, graph, replay), drafts, the environment manifest when `environments.json` exists, and the secret allowlist, then audits secrets as `check` does. Never resolves an environment and never reads, creates or modifies anything under `states/`; without a manifest it infers nothing. Tier-A errors exit 3. Warnings exit 0, except with `--strict`, where any warning raises `StrictValidationError` "validate --strict: <n> warning(s)" (exit 3; n counts distinct warnings, which are still printed or listed). With `--drafts-clean`, drafts that differ from head fail with "Drafts differ from head: <names>" (exit 3). Prints `OK: <n> revisions (v0: <a>, v1: <b>), head <id\|base>` (ADR-028) |
 | `promptmigrate get sql_agent --env dev` | Read applied local JSON | Only local stored config; secret-like values shown as <redacted:RULE> |
 | `promptmigrate env add qa` | Declare a local environment | Atomically updates `.promptmigrate/environments.json`; prints `Added environment: qa` |
 | `promptmigrate env list` | List declared environments | Prints sorted `<name>: state exists` or `<name>: no state`; never creates a database |
@@ -31,7 +32,7 @@ The environment manifest has the form `{"environments": {"dev": {}, "staging": {
 
 Existing projects without a manifest are read in memory as `dev`, `staging` and every `states/*.sqlite3` stem that matches the environment-name syntax; other stems were never PromptMigrate state and are ignored. Read-only commands never persist this adoption. `upgrade` and `downgrade` write the manifest and emit one adoption warning only after their transaction commits, so a target, history or state error leaves no manifest behind; `env add` adopts as it writes. `check`, `current` and `get` read the ledger and configs in one SQLite read transaction. An undeclared environment fails before database access or file creation.
 
-`check`, `current`, `get`, and `env list` are read-only. They do not create missing state databases. An absent database represents the empty base state; an existing database missing either required table or using WAL journal mode is a storage error and is never repaired by a read. CLI status labels use canonical manifest spelling. `upgrade` and `downgrade` use local SQLite transactions. Production-like names (`prod`, `production`, `live`) emit a warning: these names still refer only to local SQLite files.
+`validate` never touches `states/` at all. `check`, `current`, `get`, and `env list` are read-only. They do not create missing state databases. An absent database represents the empty base state; an existing database missing either required table or using WAL journal mode is a storage error and is never repaired by a read. CLI status labels use canonical manifest spelling. `upgrade` and `downgrade` use local SQLite transactions. Production-like names (`prod`, `production`, `live`) emit a warning: these names still refer only to local SQLite files.
 
 **Global flags:** `promptmigrate [--version] [--project /path/to/project] [--output {text,json}] <command>`. `--version` prints `promptmigrate <version>` and exits 0. `--output` defaults to `text`.
 
@@ -55,11 +56,20 @@ promptmigrate current --env staging
 promptmigrate downgrade -1 --env staging
 ```
 
+## CI example
+
+`validate` needs no environment, so it can gate a pull request before anything is applied:
+
+```bash
+promptmigrate validate --strict --drafts-clean   # source history, drafts, manifest, allowlist; exit 3 on any finding
+promptmigrate upgrade head --env dev              # replay into a throwaway environment
+promptmigrate check --env dev --require-head
+```
+
 ## Target commands: **proposed, not yet implemented**
 
 | Command | Contract |
 |---|---|
-| `validate` | Validate all source/drafts against strict schema and revisions |
 | `eval --suite regression` | Run evaluation policy against candidate configuration |
 | `export --env dev` | Emit immutable artifact for a runtime/CI consumer |
 | `promote --from staging --to production` | Activate approved immutable release (future shared control plane) |
@@ -75,7 +85,7 @@ Handled errors are typed (`errors.py`); `output.py` maps them to the exit status
 | `0` | success | — |
 | `1` | generic handled error | `InitializationError`, `EnvironmentNotDeclaredError`, `TargetError`, `PendingRevisionsError`, any other `MigrationError` |
 | `2` | usage error | `argparse` (bad flag, unknown command, bad `--output`) |
-| `3` | invalid source or schema | `SchemaError`, `SecretDetectedError`, `RevisionGraphError` |
+| `3` | invalid source or schema | `SchemaError`, `SecretDetectedError`, `StrictValidationError`, `RevisionGraphError` |
 | `4` | drift or integrity conflict | `DriftError`, `IntegrityError`, `MigrationConflictError` |
 | `5` | lock or storage problem | `StorageError`, `sqlite3.Error`, `OSError` |
 
@@ -94,7 +104,8 @@ message ``Migration file was modified after apply: <id> (line endings only; run 
 `restamp` is the exception: it re-stamps the checksum of such a row and succeeds.
 
 **Warnings:** each distinct warning is printed once per invocation to stderr as `Warning: <message>`, before any
-`Error: …` line. Warnings never change the exit code. Warnings come from existing revision files that break a tier-B
+`Error: …` line. Warnings never change the exit code, except under `validate --strict`, which turns any warning
+into exit 3. Warnings come from existing revision files that break a tier-B
 rule (see `MIGRATION_PROTOCOL.md`, "Strict parsing and compatibility tiers") and from the secret safeguard (redaction,
 secrets in history, stale allowlist entries; see `SECURITY.md`).
 
@@ -119,7 +130,7 @@ handled errors alike. Schema `promptmigrate.output/1`:
   `Error: …` line of text mode. Error envelopes have no `data`; success envelopes have no `error`.
 - `warnings` lists each distinct PromptMigrate warning once, in first-seen order. In JSON mode PromptMigrate warnings
   and handled errors are not printed to stderr. Warnings from other libraries still go to stderr, so a script that needs
-  a clean stderr must not assume it is empty. Warnings never change the exit status. An unhandled exception leaves no
+  a clean stderr must not assume it is empty. Warnings never change the exit status (except `validate --strict`). An unhandled exception leaves no
   envelope, so its PromptMigrate warnings are printed to stderr as in text mode, before the traceback.
 - Usage errors (exit 2) are argparse text on stderr, not an envelope: parsing fails before the format is known.
 - Secret-like values are redacted exactly as in text mode; `redacted` lists what was redacted.
@@ -138,6 +149,7 @@ handled errors alike. Schema `promptmigrate.output/1`:
 | `plan` | `direction` (`upgrade`/`downgrade`/`none`), `start`, `target` (ids, `null` at base), `steps[]` (`revision`, `changes[]` of `name`, `kind`: `create`/`update`/`delete`/`unchanged`), in the order they would run |
 | `check` | `consistent` (always `true`; inconsistency is an error), `applied`, `total` |
 | `restamp` | `restamped[]` (ids whose ledger checksum was re-stamped, in ledger order) |
+| `validate` | `revisions` (count), `head` (id, `null` at base), `format_versions` (`{"0": a, "1": b}`), `drafts_clean` (`true` with `--drafts-clean`, else `null`); `env` is `null` |
 | `get` | `name`, `config` (redacted), `redacted[]` |
 | `env add` | `name` |
 | `env list` | `environments[]` (`name`, `has_state`) |

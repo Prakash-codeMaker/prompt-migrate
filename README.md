@@ -123,6 +123,7 @@ flowchart LR
 | `downgrade -1 --env dev` | Undo the last applied revision (`base` reverts all) |
 | `check --env dev --require-head` | Detect drift, edited applied revisions and pending revisions |
 | `restamp --env dev` | Accept applied v0 revisions whose files changed only in line endings |
+| `validate [--strict] [--drafts-clean]` | Check revision history, drafts and manifests without touching any environment |
 | `get assistant --env dev` | Read a config from a local environment |
 | `env add qa` / `env list` | Declare and list local environments |
 
@@ -148,13 +149,14 @@ In your project's workflow, install PromptMigrate from its repository, then repl
 
 ```yaml
 - run: python -m pip install "git+https://github.com/himanshu231204/prompt-migrate.git"
+- run: promptmigrate validate --strict --drafts-clean
 - run: promptmigrate upgrade head --env dev
 - run: promptmigrate check --env dev --require-head
 ```
 
 `states/` is gitignored, so a fresh CI checkout starts every environment at the empty base. This job proves the revision history loads, applies cleanly in order from scratch, and verifies. It can't check a long-lived environment such as `staging`, because that state lives only on the machine that owns it; shared remote state is planned for Phase 3.
 
-`check` exits non-zero on drift, an edited applied revision, or (with `--require-head`) pending revisions. It verifies **integrity, not prompt quality**: it doesn't measure answer quality or prompt-injection resistance.
+`validate` checks only the files in Git (history, drafts, manifests, secret allowlist) and exits 3 on any finding under `--strict`; `--drafts-clean` also fails when a draft edit has no revision yet. `check` exits non-zero on drift, an edited applied revision, or (with `--require-head`) pending revisions. It verifies **integrity, not prompt quality**: it doesn't measure answer quality or prompt-injection resistance.
 
 ## Safety and integrity
 
@@ -174,7 +176,7 @@ In your project's workflow, install PromptMigrate from its repository, then repl
 
 The plan is in [`docs/ROADMAP.md`](docs/ROADMAP.md) and tracked as GitHub milestones:
 
-1. [**Phase 1: Harden the migration core**](https://github.com/himanshu231204/prompt-migrate/milestone/1) (in progress): `validate`, concurrency and fault-injection tests, package smoke tests.
+1. [**Phase 1: Harden the migration core**](https://github.com/himanshu231204/prompt-migrate/milestone/1) (in progress): concurrency and fault-injection tests, package smoke tests.
 2. [**Phase 2: Evaluation and policy gates**](https://github.com/himanshu231204/prompt-migrate/milestone/2)
 3. [**Phase 3: Production release protocol**](https://github.com/himanshu231204/prompt-migrate/milestone/3)
 4. [**Phase 4: Stable community release**](https://github.com/himanshu231204/prompt-migrate/milestone/4)
