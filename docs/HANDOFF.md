@@ -74,7 +74,7 @@ PYTHONPATH=src python -m unittest discover -s tests -v
 
 Implemented there: `init`, `revision`, `diff`, `history`, `current`, `plan`, `upgrade`, `downgrade`, `check`, `restamp`, `get`, `env add`, and `env list`; Git-trackable JSON revisions and declared environment manifest; per-environment **local** SQLite files; read-only inspection; legacy manifest adoption; snapshots; checksums at apply time (raw bytes for v0 revisions, canonical content for v1, ADR-026); explicit re-stamp of line-ending-only v0 ledger rows (`restamp`, ADR-027); state drift detection; one linear history; multi-prompt changes in one SQLite transaction.
 
-The Windows skips are host limits: symlinks/reparse points cannot be created by this account, case-colliding file names cannot coexist on its case-insensitive filesystem, and POSIX permission bits do not apply. GitHub Actions runs the full suite in Linux Docker containers and natively on Windows and macOS for Python 3.10, 3.12 and 3.13.
+The Windows skips are host limits: symlinks/reparse points cannot be created by this account, case-colliding file names cannot coexist on its case-insensitive filesystem, and POSIX permission bits do not apply. GitHub Actions runs the full suite in Linux Docker containers for Python 3.10, 3.12 and 3.13, natively on Windows for 3.10 and 3.13 and on macOS for 3.13 on every PR, and the full native 3×3 matrix weekly.
 
 **Not implemented/verified:** strict config schema, evaluation gates, external providers, shared production ledger, centralized rollout, distributed consistency, signed artifacts, comprehensive concurrency/fault injection, audit-grade access controls. The prototype's `prod` environment name is only a *local SQLite file*, never a deployment to a production system.
 

@@ -1,7 +1,13 @@
 name: CI
 on:
+  # Only main: an unfiltered push trigger runs every same-repo PR branch twice (push + pull_request).
   push:
+    branches: [main]
   pull_request:
+  # Weekly full matrix: catches OS x Python legs that PRs skip, and runner-image drift on a quiet main.
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
 permissions:
   contents: read
 # Workflow-level so matrix legs never share a group and cancel each other. Each main run gets its own group,
@@ -10,9 +16,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
-  docker-test:
+  docker-all-in-one:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -25,44 +31,80 @@ jobs:
         run: docker build --build-arg PYTHON_VERSION=${{ matrix.python-version }} --file Dockerfile.ci --tag promptmigrate-ci:${{ matrix.python-version }} .
       - name: Run complete suite in container
         run: docker run --rm promptmigrate-ci:${{ matrix.python-version }}
-  native-test:
-    # Docker only covers Linux; the store has Windows-only paths (named mutex, junctions, UNC URIs, reserved names)
-    # and macOS has a case-insensitive filesystem, so both run natively.
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, macos-latest]
-        python-version: ["3.10", "3.12", "3.13"]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+      # The smoke test builds on the host from the full checkout, as the old package-smoke job did, so the sdist
+      # is not limited to the files Dockerfile.ci copies. It also runs when the suite fails, so one run reports both.
       - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - run: python -m pip install -e ".[dev]"
-      - run: python -m pytest -v
-  package-smoke:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.10", "3.12", "3.13"]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v5
+        if: success() || failure()
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install build tooling
+        if: success() || failure()
         run: python -m pip install build
       - name: Build and smoke test fresh distributions
+        if: success() || failure()
         run: |
           artifact_dir="$(mktemp -d)"
           trap 'rm -rf "$artifact_dir"' EXIT
           python -m build --outdir "$artifact_dir"
           python scripts/package_smoke.py "$artifact_dir"/*.whl "$artifact_dir"/*.tar.gz
+  native-test:
+    # Docker only covers Linux; the store has Windows-only paths (named mutex, junctions, UNC URIs, reserved names)
+    # and macOS has a case-insensitive filesystem, so both run natively. Every Python version already runs on Linux,
+    # so each OS runs only the versions where its behavior can differ: Windows path handling (ntpath/pathlib)
+    # changed between 3.10 and 3.13, so Windows runs the oldest and newest; macOS runs the newest.
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: windows-latest, python-version: "3.10"}
+          - {os: windows-latest, python-version: "3.13"}
+          - {os: macos-latest, python-version: "3.13"}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest -v
+  native-test-extended:
+    # The legs native-test skips, so the full 3x3 still runs weekly and on demand.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: windows-latest, python-version: "3.12"}
+          - {os: macos-latest, python-version: "3.10"}
+          - {os: macos-latest, python-version: "3.12"}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest -v
+  ci-pass:
+    # The one check branch protection requires, so the matrix can change without editing protection rules.
+    # always() makes it report even when a needed job fails; a skipped job only counts on schedule/dispatch runs.
+    if: always()
+    needs: [docker-all-in-one, native-test, native-test-extended]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless every needed job passed
+        if: >-
+          contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') ||
+          needs.docker-all-in-one.result != 'success' || needs.native-test.result != 'success'
+        run: exit 1
