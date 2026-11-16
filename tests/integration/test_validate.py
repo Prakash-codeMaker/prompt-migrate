@@ -9,7 +9,7 @@ import pytest
 
 from pmtest import (
     CFG, LEGACY_ID, LEGACY_NAMES, LEGACY_WARNINGS, create, install_legacy, pm_dir, run_cli, set_draft,
-    tree_snapshot, write_revision,
+    symlink_or_skip, tree_snapshot, write_revision,
 )
 from promptmigrate import store
 from promptmigrate.core import revision, upgrade
@@ -169,3 +169,36 @@ def test_validate_does_not_create_files(tmp_path, capsys):
     before = tree_snapshot(tmp_path)
     assert run_cli(capsys, tmp_path, "validate")[0] == 0
     assert tree_snapshot(tmp_path) == before
+
+
+def test_warning_forwarded_when_validation_fails(project, capsys, monkeypatch):
+    """A legacy warning emitted before a later SchemaError must still be reported (issue 1)."""
+    install_legacy(project, monkeypatch, "reserved_types")  # emits 2 LegacyRevisionWarnings
+    _bad_draft(project)  # read_drafts raises SchemaError
+    code, out, err = run_cli(capsys, project, "validate")
+    assert (code, out) == (3, "")
+    assert "Warning: " in err
+    assert "reserved-field-type" in err
+
+
+def test_revision_symlink_under_states_rejected(project, capsys):
+    """A revision that resolves under states/ breaches I19 and fails with exit 3 (issue 2)."""
+    states = pm_dir(project) / "states"
+    states.mkdir(exist_ok=True)
+    target = states / "leak.sqlite3"
+    target.write_bytes(b"x")
+    link = pm_dir(project) / "versions" / "leak.json"
+    symlink_or_skip(link, target)
+    code, out, err = run_cli(capsys, project, "validate")
+    assert code == 3
+    assert "Error: " in err
+    assert "resolves under states/" in err
+
+
+def test_replay_conflict_exits_3_not_4(project, capsys):
+    """A source-history replay conflict is a tier-A source error for validate: exit 3, not exit 4 (issue 3)."""
+    write_revision(project, LEGACY_ID, None, {"assistant": {"before": CFG, "after": None}})
+    code, out, err = run_cli(capsys, project, "validate")
+    assert code == 3
+    assert "Error: " in err
+    assert "Invalid source history" in err
