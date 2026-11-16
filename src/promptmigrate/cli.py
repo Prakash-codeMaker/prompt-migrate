@@ -91,6 +91,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if error is not None:
             return output.emit_error(error, args.output, *output.describe(args), warned)
+        # TODO(#20 follow-up): replace this cast with a shared CommandResult protocol
+        # or union so command return types are checked at the dispatch point.
         output.emit_result(cast(Any, result), args.output, warned)
     except OSError as e:  # writing the result failed: a closed pipe or a full destination
         print(f"Error: {e}", file=sys.stderr)
