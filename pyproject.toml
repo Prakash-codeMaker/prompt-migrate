@@ -48,5 +48,5 @@ ignore_missing_imports = false
 check_untyped_defs = false       # bodies of unannotated functions are not checked yet
 disallow_untyped_defs = false    # annotated code only; demanding annotations everywhere is a later step
 warn_return_any = false          # returns of Any are expected until the protocols above are typed
-warn_unused_ignores = false      # targeted ignores (POSIX-only attrs) would go stale as stubs land
+warn_unused_ignores = true       # a stale # type: ignore should surface, not linger
 warn_unused_configs = false      # keeps the config forward-compatible across mypy minors
