@@ -666,3 +666,44 @@ def test_project_lock_is_reentrant_in_one_thread(project):
     thread.start()
     assert done.wait(5), "nested _project_lock deadlocked"
     thread.join(5)
+
+
+@pytest.mark.parametrize("failing_call, message", [
+    ("CreateMutexW", "Could not create environment manifest mutex: Windows error 5"),
+    ("WaitForSingleObject", "Could not acquire environment manifest mutex: Windows error 5"),
+])
+def test_windows_lock_failure_is_one_readable_storage_error(project, monkeypatch, failing_call, message):
+    """A Windows mutex failure is a StorageError whose message names the Windows error code.
+
+    StorageError is a plain exception: StorageError(5, "...") would render as the tuple "(5, '...')" in text and
+    JSON output. Fakes kernel32 so this Windows-only branch is checked on every platform.
+    """
+    import ctypes
+    import sys
+    from types import SimpleNamespace
+
+    from promptmigrate.store import lock
+
+    kernel = SimpleNamespace(
+        CreateMutexW=_FakeCall(0 if failing_call == "CreateMutexW" else 1),
+        WaitForSingleObject=_FakeCall(0xFFFFFFFF),
+        ReleaseMutex=_FakeCall(1),
+        CloseHandle=_FakeCall(1),
+    )
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *args, **kwargs: kernel, raising=False)
+    monkeypatch.setattr(ctypes, "get_last_error", lambda: 5, raising=False)
+    with pytest.raises(errors.StorageError) as caught:
+        with lock._project_lock(project):
+            pass
+    assert str(caught.value) == message
+
+
+class _FakeCall:
+    """A kernel32 function stand-in: accepts argtypes/restype and returns a fixed result."""
+
+    def __init__(self, result):
+        self.result = result
+
+    def __call__(self, *args):
+        return self.result

@@ -34,11 +34,15 @@ def _project_lock(project_dir: Path) -> Iterator[None]:
         kernel.CloseHandle.argtypes = (ctypes.c_void_p,)
         handle = kernel.CreateMutexW(None, False, f"Global\\PromptMigrate-{digest}")
         if not handle:
-            raise StorageError(ctypes.get_last_error(), "Could not create environment manifest mutex") from None
+            raise StorageError(
+                f"Could not create environment manifest mutex: Windows error {ctypes.get_last_error()}"
+            ) from None
         result = kernel.WaitForSingleObject(handle, 0xFFFFFFFF)
         if result not in (0, 0x80):
             kernel.CloseHandle(handle)
-            raise StorageError(ctypes.get_last_error(), "Could not acquire environment manifest mutex") from None
+            raise StorageError(
+                f"Could not acquire environment manifest mutex: Windows error {ctypes.get_last_error()}"
+            ) from None
         try:
             yield
         finally:
