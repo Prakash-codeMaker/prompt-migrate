@@ -39,10 +39,9 @@ def _project_lock(project_dir: Path) -> Iterator[None]:
             ) from None
         result = kernel.WaitForSingleObject(handle, 0xFFFFFFFF)
         if result not in (0, 0x80):
+            error = ctypes.get_last_error()  # read before CloseHandle, which can overwrite the thread's last error
             kernel.CloseHandle(handle)
-            raise StorageError(
-                f"Could not acquire environment manifest mutex: Windows error {ctypes.get_last_error()}"
-            ) from None
+            raise StorageError(f"Could not acquire environment manifest mutex: Windows error {error}") from None
         try:
             yield
         finally:

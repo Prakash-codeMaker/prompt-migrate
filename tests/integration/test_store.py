@@ -699,6 +699,37 @@ def test_windows_lock_failure_is_one_readable_storage_error(project, monkeypatch
     assert str(caught.value) == message
 
 
+def test_windows_lock_wait_failure_reports_the_wait_error_not_close_handle(project, monkeypatch):
+    """The reported code is WaitForSingleObject's, read before CloseHandle can overwrite the thread's last error."""
+    import ctypes
+    import sys
+    from types import SimpleNamespace
+
+    from promptmigrate.store import lock
+
+    last_error = {"code": 0}
+
+    def setting(result, code):
+        def call(*args):
+            last_error["code"] = code
+            return result
+        return call
+
+    kernel = SimpleNamespace(
+        CreateMutexW=_FakeCall(1),
+        WaitForSingleObject=setting(0xFFFFFFFF, 6),
+        ReleaseMutex=_FakeCall(1),
+        CloseHandle=setting(1, 0),
+    )
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *args, **kwargs: kernel, raising=False)
+    monkeypatch.setattr(ctypes, "get_last_error", lambda: last_error["code"], raising=False)
+    with pytest.raises(errors.StorageError) as caught:
+        with lock._project_lock(project):
+            pass
+    assert str(caught.value) == "Could not acquire environment manifest mutex: Windows error 6"
+
+
 class _FakeCall:
     """A kernel32 function stand-in: accepts argtypes/restype and returns a fixed result."""
 
