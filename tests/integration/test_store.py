@@ -646,3 +646,95 @@ def test_store_readonly_rejects_regular_file_as_states_directory(project):
     with pytest.raises(errors.StorageError):
         with api.connect_readonly(project, "dev"):
             pytest.fail("invalid states directory must not be treated as empty base state")
+
+
+def test_project_lock_is_reentrant_in_one_thread(project):
+    """A thread holding the project lock can take it again (restamp holds it around connect_write).
+
+    POSIX flock on a second descriptor blocks against the first, so a nested lock used to deadlock there;
+    the Windows mutex was already re-entrant. Run in a daemon thread so a regression fails instead of hanging.
+    """
+    api = store_api()
+    done = threading.Event()
+
+    def nested():
+        with api._project_lock(project):
+            with api._project_lock(project):
+                done.set()
+
+    thread = threading.Thread(target=nested, daemon=True)
+    thread.start()
+    assert done.wait(5), "nested _project_lock deadlocked"
+    thread.join(5)
+
+
+@pytest.mark.parametrize("failing_call, message", [
+    ("CreateMutexW", "Could not create environment manifest mutex: Windows error 5"),
+    ("WaitForSingleObject", "Could not acquire environment manifest mutex: Windows error 5"),
+])
+def test_windows_lock_failure_is_one_readable_storage_error(project, monkeypatch, failing_call, message):
+    """A Windows mutex failure is a StorageError whose message names the Windows error code.
+
+    StorageError is a plain exception: StorageError(5, "...") would render as the tuple "(5, '...')" in text and
+    JSON output. Fakes kernel32 so this Windows-only branch is checked on every platform.
+    """
+    import ctypes
+    import sys
+    from types import SimpleNamespace
+
+    from promptmigrate.store import lock
+
+    kernel = SimpleNamespace(
+        CreateMutexW=_FakeCall(0 if failing_call == "CreateMutexW" else 1),
+        WaitForSingleObject=_FakeCall(0xFFFFFFFF),
+        ReleaseMutex=_FakeCall(1),
+        CloseHandle=_FakeCall(1),
+    )
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *args, **kwargs: kernel, raising=False)
+    monkeypatch.setattr(ctypes, "get_last_error", lambda: 5, raising=False)
+    with pytest.raises(errors.StorageError) as caught:
+        with lock._project_lock(project):
+            pass
+    assert str(caught.value) == message
+
+
+def test_windows_lock_wait_failure_reports_the_wait_error_not_close_handle(project, monkeypatch):
+    """The reported code is WaitForSingleObject's, read before CloseHandle can overwrite the thread's last error."""
+    import ctypes
+    import sys
+    from types import SimpleNamespace
+
+    from promptmigrate.store import lock
+
+    last_error = {"code": 0}
+
+    def setting(result, code):
+        def call(*args):
+            last_error["code"] = code
+            return result
+        return call
+
+    kernel = SimpleNamespace(
+        CreateMutexW=_FakeCall(1),
+        WaitForSingleObject=setting(0xFFFFFFFF, 6),
+        ReleaseMutex=_FakeCall(1),
+        CloseHandle=setting(1, 0),
+    )
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *args, **kwargs: kernel, raising=False)
+    monkeypatch.setattr(ctypes, "get_last_error", lambda: last_error["code"], raising=False)
+    with pytest.raises(errors.StorageError) as caught:
+        with lock._project_lock(project):
+            pass
+    assert str(caught.value) == "Could not acquire environment manifest mutex: Windows error 6"
+
+
+class _FakeCall:
+    """A kernel32 function stand-in: accepts argtypes/restype and returns a fixed result."""
+
+    def __init__(self, result):
+        self.result = result
+
+    def __call__(self, *args):
+        return self.result

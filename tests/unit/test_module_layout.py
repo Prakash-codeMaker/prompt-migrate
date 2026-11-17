@@ -15,7 +15,7 @@ PROTOCOL_NAMES = {
 STORE_NAMES = {
     "environments": [
         "DEFAULT_ENVIRONMENTS", "_validate_name", "read_environments", "_infer_environments", "canonical_name",
-        "display_name", "_new_file_mode", "_write_environments", "_warn_adoption", "_warn_production",
+        "display_name", "_existing_mode", "_write_environments", "_warn_adoption", "_warn_production",
         "resolve_environment", "_resolve_declared", "adopt_environments", "add_environment", "list_environments",
     ],
     "lock": ["_project_lock"],

@@ -16,14 +16,15 @@ def restamp(project_dir: Path, env: str) -> list[str]:
     """
     env = store.resolve_environment(project_dir, env)
     revisions_ = revisions.load_revisions(project_dir)
-    if not store._db_path(project_dir, env).exists():
-        return []  # base state: nothing is applied, so nothing is re-stamped and no state file is created
-    with store.connect_write(project_dir, env) as db:
-        db.execute("BEGIN IMMEDIATE")
-        stale = apply.line_ending_only(db, revisions_)
-        for r in stale:
-            db.execute("UPDATE applied_revisions SET checksum=? WHERE revision=?", (r.checksum, r.revision))
-        apply._verify(db, revisions_, env)
+    with store._project_lock(project_dir):
+        if not store._db_path(project_dir, env).exists():
+            return []  # base state: nothing is applied, so nothing is re-stamped and no state file is created
+        with store.connect_write(project_dir, env) as db:
+            db.execute("BEGIN IMMEDIATE")
+            stale = apply.line_ending_only(db, revisions_)
+            for r in stale:
+                db.execute("UPDATE applied_revisions SET checksum=? WHERE revision=?", (r.checksum, r.revision))
+            apply._verify(db, revisions_, env)
     return [r.revision for r in stale]
 
 

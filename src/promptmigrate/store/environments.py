@@ -8,7 +8,6 @@ import json
 import os
 from pathlib import Path
 import stat
-import tempfile
 from typing import Any
 import warnings
 
@@ -75,14 +74,16 @@ def display_name(project_dir: Path, env: str) -> str:
     return canonical_name(environments, env) or env
 
 
-def _new_file_mode(path: Path) -> int:
-    """Keep an existing file's permission bits; give a new file the usual umask-derived mode."""
+def _existing_mode(path: Path) -> int | None:
+    """Return an existing file's permission bits, or None for a new file.
+
+    Never reads the process umask: `os.umask` is process-wide, so reading it means setting it, which races with
+    other threads in an embedding app. A new file gets its mode from `os.open(..., 0o666)`, which applies the umask.
+    """
     try:
         return stat.S_IMODE(path.stat().st_mode)
     except FileNotFoundError:
-        umask = os.umask(0)
-        os.umask(umask)
-        return 0o666 & ~umask
+        return None
 
 
 def _write_environments(project_dir: Path, environments: dict[str, dict[str, Any]]) -> Path:
@@ -90,15 +91,16 @@ def _write_environments(project_dir: Path, environments: dict[str, dict[str, Any
     text = json.dumps({"environments": environments}, ensure_ascii=False, indent=2) + "\n"
     if len(text.encode("utf-8")) > protocol.limits.MAX_CONTROL_FILE_BYTES:
         raise SchemaError(f"Invalid environments file: output exceeds the {protocol.limits.MAX_CONTROL_FILE_BYTES}-byte limit")
-    mode = _new_file_mode(path)
+    mode = _existing_mode(path)
     temporary = None
     try:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="\n", dir=path.parent,
-                                         prefix=".environments-", suffix=".tmp", delete=False) as file:
-            temporary = Path(file.name)
+        # Not tempfile: it creates 0600 files, and fixing that with chmod ignores the umask. _create_temp opens with
+        # 0o666, so the OS applies the umask; only an existing manifest's own mode is restored.
+        descriptor, temporary = project._create_temp(path.parent)
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as file:
             file.write(text)
-        # NamedTemporaryFile creates 0600 files; a tracked manifest must stay readable like any other source file.
-        os.chmod(temporary, mode)
+        if mode is not None:
+            os.chmod(temporary, mode)
         os.replace(temporary, path)
     finally:
         if temporary is not None:
