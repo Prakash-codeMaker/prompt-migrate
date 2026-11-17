@@ -7,9 +7,14 @@ import hashlib
 import os
 from pathlib import Path
 import sys
+import threading
 
 from .. import project
 from ..errors import StorageError
+
+# Project roots whose lock this thread already holds. POSIX flock on a second descriptor blocks against the
+# first, so a nested lock (restamp around connect_write) would deadlock; the Windows mutex is re-entrant already.
+_held = threading.local()
 
 
 @contextmanager
@@ -41,12 +46,18 @@ def _project_lock(project_dir: Path) -> Iterator[None]:
             kernel.CloseHandle(handle)
     else:
         import fcntl
+        held = _held.__dict__.setdefault("roots", set())
+        if root in held:
+            yield
+            return
         descriptor = os.open(root, os.O_RDONLY)
         try:
             fcntl.flock(descriptor, fcntl.LOCK_EX)
+            held.add(root)
             try:
                 yield
             finally:
+                held.discard(root)
                 fcntl.flock(descriptor, fcntl.LOCK_UN)
         finally:
             os.close(descriptor)

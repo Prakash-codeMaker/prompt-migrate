@@ -5,7 +5,7 @@ Names are defined in the submodules and re-exported here. Patch a function on th
 
 from ..project import require_init, root_dir
 from .environments import (
-    DEFAULT_ENVIRONMENTS, _infer_environments, _new_file_mode, _resolve_declared, _validate_name, _warn_adoption,
+    DEFAULT_ENVIRONMENTS, _infer_environments, _existing_mode, _resolve_declared, _validate_name, _warn_adoption,
     _warn_production, _write_environments, add_environment, adopt_environments, canonical_name, display_name,
     list_environments, read_environments, resolve_environment,
 )

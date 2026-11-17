@@ -646,3 +646,23 @@ def test_store_readonly_rejects_regular_file_as_states_directory(project):
     with pytest.raises(errors.StorageError):
         with api.connect_readonly(project, "dev"):
             pytest.fail("invalid states directory must not be treated as empty base state")
+
+
+def test_project_lock_is_reentrant_in_one_thread(project):
+    """A thread holding the project lock can take it again (restamp holds it around connect_write).
+
+    POSIX flock on a second descriptor blocks against the first, so a nested lock used to deadlock there;
+    the Windows mutex was already re-entrant. Run in a daemon thread so a regression fails instead of hanging.
+    """
+    api = store_api()
+    done = threading.Event()
+
+    def nested():
+        with api._project_lock(project):
+            with api._project_lock(project):
+                done.set()
+
+    thread = threading.Thread(target=nested, daemon=True)
+    thread.start()
+    assert done.wait(5), "nested _project_lock deadlocked"
+    thread.join(5)

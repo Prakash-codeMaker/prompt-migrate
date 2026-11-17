@@ -442,8 +442,8 @@ def test_manifest_rewrite_keeps_permissions(project, existing_mode):
 
 
 def test_new_file_mode_never_touches_the_process_umask(project, monkeypatch):
-    """I20: `_new_file_mode` must not read/restore the process umask; reading it means setting it,
-    which races with other threads in an embedding app. `write_new_file` already uses O_EXCL + 0o666
+    """I20: `_existing_mode` must not read/restore the process umask; reading it means setting it,
+    which races with other threads in an embedding app. A new manifest's temp file is opened with 0o666
     so the OS applies the umask at creation instead."""
     from promptmigrate.store import environments as env_module
 
@@ -456,17 +456,17 @@ def test_new_file_mode_never_touches_the_process_umask(project, monkeypatch):
     monkeypatch.setattr(os, "umask", recording_umask)
 
     new_path = pm_dir(project) / "nonexistent.json"
-    assert env_module._new_file_mode(new_path) == 0o666
-    assert not seen, "_new_file_mode must not call os.umask for a new file"
+    assert env_module._existing_mode(new_path) is None
+    assert not seen, "_existing_mode must not call os.umask for a new file"
 
     # existing file keeps its bits without touching the umask
     existing = pm_dir(project) / "environments.json"
-    env_module._new_file_mode(existing)
-    assert not seen, "_new_file_mode must not call os.umask for an existing file"
+    env_module._existing_mode(existing)
+    assert not seen, "_existing_mode must not call os.umask for an existing file"
 
 
 def test_manifest_rewrite_does_not_touch_process_umask(project, monkeypatch):
-    """I20 / PR 10 follow-up: `_new_file_mode` must not read/restore `os.umask` (process-wide)."""
+    """I20 / PR 10 follow-up: writing the manifest must not read/restore `os.umask` (process-wide)."""
     import promptmigrate.store.environments as env_mod
 
     calls = []
@@ -478,7 +478,7 @@ def test_manifest_rewrite_does_not_touch_process_umask(project, monkeypatch):
     if path.exists():
         path.unlink()
     core.env_add(project, "qa")
-    assert calls == [], f"_new_file_mode must not call os.umask; calls: {calls}"
+    assert calls == [], f"the manifest write must not call os.umask; calls: {calls}"
 
 
 @pytest.mark.parametrize("command", ["check", "get_config"])
