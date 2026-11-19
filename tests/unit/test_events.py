@@ -116,3 +116,9 @@ def test_a_trigger_name_taken_on_another_table_fails_closed(db):
     db.execute("CREATE TRIGGER events_no_update BEFORE UPDATE ON other BEGIN SELECT 1; END")
     with pytest.raises(StorageError, match="trigger"):
         events.ensure(db)
+
+
+def test_an_unrelated_extra_trigger_on_events_is_tolerated(db):
+    events.ensure(db)
+    db.execute("CREATE TRIGGER someone_elses AFTER INSERT ON events BEGIN SELECT 1; END")
+    events.ensure(db)  # the three append-only triggers are present; extra ones are not ours to reject

@@ -9,7 +9,8 @@ import sqlite3
 
 from ..errors import StorageError
 
-# (name, declared type, NOT NULL flag, primary-key flag) as PRAGMA table_info reports them for _TABLE.
+# (name, declared type, NOT NULL flag, primary-key flag): PRAGMA table_info's (cid, name, type, notnull, dflt_value,
+# pk) columns 1, 2, 3 and 5, as it reports them for _TABLE.
 _SHAPE = (
     ("seq", "INTEGER", 0, 1), ("occurred_at", "TEXT", 1, 0), ("command", "TEXT", 1, 0),
     ("revision", "TEXT", 1, 0), ("checksum", "TEXT", 1, 0), ("previous_checksum", "TEXT", 0, 0),
@@ -54,7 +55,7 @@ def ensure(db: sqlite3.Connection) -> None:
         # IF NOT EXISTS skips a trigger name already used on another table, which would leave `events` unguarded.
         bound = {row[0] for row in db.execute(
             "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='events'")}
-        if bound != _TRIGGER_NAMES:
+        if not _TRIGGER_NAMES <= bound:
             raise StorageError("Invalid environment state: events triggers are missing or bound to another table")
     except sqlite3.Error as exc:  # e.g. a view named `events`, or a same-named trigger on another table
         raise StorageError(f"Invalid environment state: cannot create the events table: {exc}") from exc
