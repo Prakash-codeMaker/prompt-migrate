@@ -1,5 +1,6 @@
 * text=auto eol=lf
 *.sqlite3 binary
 *.png binary
+*.gif binary
 tests/fixtures/v0_frozen/** -text
 tests/fixtures/crlf/** -text

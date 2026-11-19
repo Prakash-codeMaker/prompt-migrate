@@ -21,6 +21,10 @@ python -m pip install promptmigrate-cli
 
 The PyPI package is `promptmigrate-cli`; the command and the import are both `promptmigrate`. See [Install](#install) for details.
 
+<p align="center">
+  <img src="assets/demo.gif" alt="Terminal demo: init, revision, upgrade, history, downgrade, then check failing with exit code 4 after dev is changed by hand" width="100%" />
+</p>
+
 > [!NOTE]
 > PromptMigrate is a **v0.1 local prototype**. Environments are local SQLite files, and nothing is deployed to Langfuse, OpenAI, Azure AI Foundry or any other runtime. See [what is and isn't guaranteed](#safety-and-integrity).
 
