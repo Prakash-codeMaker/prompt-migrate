@@ -39,6 +39,7 @@ AI applications routinely deploy prompt, model, tool, and output-contract change
 | 17 | [REFERENCES.md](REFERENCES.md) | Official inspiration and competitor sources |
 | 18 | [CLAUDE.md](../CLAUDE.md) | Instructions for Claude working in this repository |
 | 19 | CLAUDE_DISCUSSION_PROMPT.md | Ready-to-copy first conversation prompt (not included in this repo) |
+| 20 | [RELEASING.md](RELEASING.md) | Maintainer guide for publishing the package to PyPI |
 
 ## Agreed direction versus recommended defaults
 

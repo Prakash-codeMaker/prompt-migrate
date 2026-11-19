@@ -82,6 +82,10 @@ An automated Open CodeReview bot may comment on your pull request. Its comments 
 merge gate, and a maintainer decides which findings need a change. Maintainers can re-run it by commenting
 `/open-code-review`.
 
+## Releases
+
+Maintainers publish to PyPI by following [`docs/RELEASING.md`](docs/RELEASING.md).
+
 ## Reporting problems
 
 Use the issue templates for bugs and feature requests. Report security problems privately, as described in
