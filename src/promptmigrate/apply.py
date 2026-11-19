@@ -14,6 +14,7 @@ from typing import Any
 from . import protocol, revisions
 from .errors import DriftError, IntegrityError, StorageError
 from .protocol import canonical  # imported by name: tests patch apply.canonical to fail a write without touching same()
+from .store import events
 
 
 def _applied(db: sqlite3.Connection) -> list[tuple[str, str]]:
@@ -88,9 +89,11 @@ def migrate(db: sqlite3.Connection, steps: list[revisions.Revision], *, backward
     """Write each revision's rows and ledger entry in order, re-checking every precondition as it goes.
 
     Forward steps write each `after` and append to the ledger; backward steps (already in reverse order) write each
-    `before` and remove the ledger row.
+    `before` and remove the ledger row. Each step also appends one `events` row (ADR-029) in the same transaction.
     """
     state = _stored_state(db)
+    if steps:
+        events.ensure(db)  # adopts an older state DB inside this transaction (ADR-029)
     for r in steps:
         revisions._apply_changes(state, r, backward=backward)
         for name, change in r.changes.items():
@@ -110,3 +113,4 @@ def migrate(db: sqlite3.Connection, steps: list[revisions.Revision], *, backward
                 "INSERT INTO applied_revisions(revision, checksum, applied_at) VALUES(?, ?, ?)",
                 (r.revision, r.checksum, datetime.now(timezone.utc).isoformat()),
             )
+        events.record(db, "downgrade" if backward else "upgrade", r.revision, r.checksum)

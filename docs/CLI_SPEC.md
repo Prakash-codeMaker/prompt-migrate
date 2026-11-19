@@ -14,9 +14,9 @@ Familiar to Alembic users, transparent in CI, safe by default. Commands distingu
 | `promptmigrate diff` | Compare drafts with source migration head | JSON diff to stdout; not env diff; secret-like values shown as <redacted:RULE> |
 | `promptmigrate history` | Print ordered source revisions | Shows ID, parent, message; secret-like messages shown as <redacted:RULE> |
 | `promptmigrate current --env dev` | Show env applied head | Verifies local state first |
-| `promptmigrate upgrade head --env dev` | Advance to source head | SQLite transactional operation |
+| `promptmigrate upgrade head --env dev` | Advance to source head | SQLite transactional operation; appends one row per applied revision to the environment's append-only `events` table (ADR-029) |
 | `promptmigrate upgrade <revision> --env dev` | Advance to exact revision | Must be ahead of/equal to current |
-| `promptmigrate downgrade -1 --env dev` | Revert one revision | Default downgrade behavior |
+| `promptmigrate downgrade -1 --env dev` | Revert one revision | Default downgrade behavior; appends one `downgrade` event per reverted revision to the `events` table (ADR-029) |
 | `promptmigrate downgrade base --env dev` | Revert all | Restores empty source state |
 | `promptmigrate downgrade <revision> --env dev` | Revert to exact revision | Must be behind/equal to current |
 | `promptmigrate plan --env dev [--target head]` | Preview what `upgrade`/`downgrade` would do | Read-only: verifies the environment like `check`, writes nothing (no state file, no manifest adoption, no lock). Target is `head` (default), `-1`, `base` or a revision id; the direction is inferred from where the target lies. Lists each revision and its config changes (`create`/`update`/`delete`); prints `nothing to do` at the target. Same `Error:` text for unknown targets, drift and tampering as the commands it previews. |

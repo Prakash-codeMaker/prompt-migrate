@@ -232,3 +232,17 @@ def snapshot(project):
         p.relative_to(project).as_posix(): p.stat().st_mtime_ns
         for p in project.rglob("*") if p.is_file()
     }
+
+
+def read_events(project, env="dev") -> list[tuple]:
+    """(command, revision, checksum, previous_checksum) rows of an env's events table; [] if it does not exist."""
+    import sqlite3
+    from contextlib import closing
+    path = pm_dir(project) / "states" / f"{env}.sqlite3"
+    if not path.exists():
+        return []
+    with closing(sqlite3.connect(path)) as db:
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE name='events'").fetchone():
+            return []
+        return db.execute(
+            "SELECT command, revision, checksum, previous_checksum FROM events ORDER BY seq").fetchall()

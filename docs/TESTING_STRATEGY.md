@@ -128,7 +128,7 @@ Basenames stay unique across directories, because pytest's default `prepend` imp
 
 `tests/integration/test_apply_fault_injection.py` covers the `apply.py` rows. It raises at each point reachable from
 `apply.migrate` and the `_verify` reads, in both directions: the ledger and `prompts` reads, `_apply_changes`,
-`canonical`, the `prompts` upsert and delete, the ledger timestamp, insert and delete, and `COMMIT`. Faults are patched
+`canonical`, the `prompts` upsert and delete, the ledger timestamp, insert and delete, the `events` table creation and row insert (ADR-029, #14), and `COMMIT`. After a fault the `events` rows must also equal their pre-fault values, so an event never exists without its ledger change and vice versa; one more test faults the adoption of an older state DB and expects no table to remain. Faults are patched
 on the defining modules (`apply`, `revisions`, `sqlite3`), never `core` or `cli`; SQL and commit faults go through a
 proxy connection, because `sqlite3.Connection` is a C type that cannot be patched. After each fault the env file must
 equal its pre-fault ledger and rows, `check` must report the old state, every connection must be closed and the same

@@ -32,6 +32,8 @@ SQL_KINDS = {
     "prompts_delete": "DELETE FROM prompts",
     "ledger_insert": "INSERT INTO applied_revisions",
     "ledger_delete": "DELETE FROM applied_revisions",
+    "events_ddl": "CREATE ",
+    "event_insert": "INSERT INTO events",
 }
 WRITE_KINDS = {"prompts_upsert", "prompts_delete", "ledger_insert", "ledger_delete"}
 FUNCTION_KINDS = {"canonical": "canonical", "_apply_changes": "apply_changes", "now": "ledger_timestamp"}
@@ -39,9 +41,10 @@ FUNCTION_KINDS = {"canonical": "canonical", "_apply_changes": "apply_changes", "
 # How many times each point fires in one run, from prefix [A] up to head [A, B, C] and from head back to [A].
 COUNTS = {
     "up": {"ledger_read": 1, "prompts_read": 2, "apply_changes": 2, "canonical": 3, "prompts_upsert": 3,
-           "prompts_delete": 1, "ledger_timestamp": 2, "ledger_insert": 2, "commit": 1},
+           "prompts_delete": 1, "ledger_timestamp": 2, "ledger_insert": 2, "events_ddl": 3, "event_insert": 2,
+           "commit": 1},
     "down": {"ledger_read": 1, "prompts_read": 2, "apply_changes": 2, "canonical": 3, "prompts_upsert": 3,
-             "prompts_delete": 1, "ledger_delete": 2, "commit": 1},
+             "prompts_delete": 1, "ledger_delete": 2, "events_ddl": 3, "event_insert": 2, "commit": 1},
 }
 CASES = [(direction, kind, n) for direction, kinds in COUNTS.items() for kind, count in kinds.items()
          for n in range(1, count + 1)]
@@ -151,6 +154,15 @@ def raw_state(project):
     return ledger, prompts
 
 
+def raw_events(project):
+    """Rows of the env's events table read straight from the file; [] when the table does not exist."""
+    path = project / ".promptmigrate" / "states" / "dev.sqlite3"
+    with closing(REAL_CONNECT(path)) as db:
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE name='events'").fetchone():
+            return []
+        return db.execute("SELECT command, revision, checksum FROM events ORDER BY seq").fetchall()
+
+
 def caused_by_injection(exc):
     while exc is not None:
         if "injected fault" in str(exc):
@@ -174,6 +186,7 @@ def test_recorded_injection_points_match_the_table(scenario, direction):
 def test_fault_leaves_environment_wholly_old(scenario, direction, kind, n):
     action, before, after = prepare(scenario, direction)
     ledger_before, prompts_before = raw_state(scenario)
+    events_before = raw_events(scenario)
     injector = Injector((kind, n))
     with pytest.MonkeyPatch.context() as m:
         injector.install(m)
@@ -186,13 +199,36 @@ def test_fault_leaves_environment_wholly_old(scenario, direction, kind, n):
     ledger, prompts = raw_state(scenario)
     assert ledger == ledger_before
     assert prompts == prompts_before
+    assert raw_events(scenario) == events_before  # an event never outlives a rolled-back ledger change, nor the reverse
     assert prompts == revisions.replay_revisions(revisions.load_revisions(scenario)[:before])
     assert check(scenario, "dev") == (before, 3)  # no drift, no integrity error
 
     action()  # the env is not wedged: the same command succeeds once the fault is gone
+    assert len(raw_events(scenario)) == len(events_before) + abs(after - before)
     assert check(scenario, "dev") == (after, 3)
     assert raw_state(scenario)[1] == revisions.replay_revisions(revisions.load_revisions(scenario)[:after])
     scenario.joinpath(".promptmigrate", "states", "dev.sqlite3").unlink()  # PermissionError on Windows if a handle leaked
+
+
+def test_a_fault_while_adopting_an_old_db_leaves_it_without_the_table(scenario):
+    path = scenario / ".promptmigrate" / "states" / "dev.sqlite3"
+    with closing(REAL_CONNECT(path)) as db:  # make dev look like it was written by a release without events
+        db.execute("DROP TRIGGER events_no_update")
+        db.execute("DROP TRIGGER events_no_delete")
+        db.execute("DROP TABLE events")
+        db.commit()
+    state_before = raw_state(scenario)
+    injector = Injector(("event_insert", 1))
+    with pytest.MonkeyPatch.context() as m:
+        injector.install(m)
+        with pytest.raises(Exception) as raised:
+            upgrade(scenario, "dev")
+    assert caused_by_injection(raised.value)
+    with closing(REAL_CONNECT(path)) as db:
+        assert db.execute("SELECT 1 FROM sqlite_master WHERE name='events'").fetchone() is None  # DDL rolled back
+    assert raw_state(scenario) == state_before
+    upgrade(scenario, "dev")
+    assert len(raw_events(scenario)) == 2
 
 
 TYPED_READS = [(direction, kind, n) for direction in sorted(COUNTS)
@@ -219,6 +255,6 @@ def test_every_call_in_migrate_is_a_declared_injection_point():
         if name == "execute":
             sql.add(classify(call.args[0].value))
     assert sql == WRITE_KINDS, "migrate runs SQL that no injection point covers; add it to SQL_KINDS and COUNTS"
-    covered = set(FUNCTION_KINDS) | {"execute", "items", "isoformat", "_stored_state"}
+    covered = set(FUNCTION_KINDS) | {"execute", "items", "isoformat", "_stored_state", "ensure", "record"}
     assert names <= covered, f"migrate calls {sorted(names - covered)}; add injection points for them"
     assert set(FUNCTION_KINDS.values()) <= {kind for kinds in COUNTS.values() for kind in kinds}
