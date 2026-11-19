@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+---
+
+## [0.1.0] - 2026-11-19
+
 ### Added
 
 - **PyPI release workflow** — `.github/workflows/release.yml` publishes to PyPI with trusted publishing (OIDC, no stored token) when a `v*` tag is pushed; it checks the tag against the `pyproject.toml` version, builds, runs the package smoke test, then publishes from the `pypi` environment (#55)
