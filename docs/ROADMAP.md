@@ -50,6 +50,7 @@
 - [ ] The rest of the fault-injection suite (#31, #32, #33); the lock and file-mode follow-ups (#79) are fixed.
 - [x] README quick-start commands run as a CLI smoke test against a temporary project (#21).
 - [ ] Append-only events table (#14): ADR-029 accepted; implementation in progress.
+  - Task 2 done: `store/events.py` (schema, triggers, shape check); commands not wired yet.
 - [ ] `rebase` for unapplied revisions (#15) is an RFC and needs an accepted ADR first.
 
 **Exit:** correct, stable local CLI with comprehensive automated evidence and honest documentation.
