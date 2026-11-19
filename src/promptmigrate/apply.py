@@ -28,6 +28,14 @@ def _actual(db: sqlite3.Connection) -> dict[str, dict[str, Any]]:
     ).fetchall()}
 
 
+def _stored_state(db: sqlite3.Connection) -> dict[str, dict[str, Any]]:
+    """Read the `prompts` rows, raising `StorageError` when the store cannot be read or holds invalid JSON."""
+    try:
+        return _actual(db)
+    except (sqlite3.Error, ValueError, TypeError, RecursionError) as exc:
+        raise StorageError("Corrupt environment state") from exc
+
+
 def _ledger_rows(db: sqlite3.Connection, revisions_: list[revisions.Revision]) -> Iterator[tuple[revisions.Revision, str]]:
     """Yield each ledger row as (source revision, stored checksum), in order, while its id matches source history."""
     try:
@@ -53,10 +61,7 @@ def _verify(db: sqlite3.Connection, revisions_: list[revisions.Revision], env: s
             raise IntegrityError(f"Migration file was modified after apply: {source.revision}")
         count += 1
     expected = revisions.replay_revisions(revisions_[:count])
-    try:
-        actual = _actual(db)
-    except (sqlite3.Error, ValueError, TypeError, RecursionError) as exc:
-        raise StorageError("Corrupt environment state") from exc
+    actual = _stored_state(db)
     names = sorted(name for name in actual.keys() | expected.keys()
                    if not protocol.same(actual.get(name), expected.get(name)))
     if names:
@@ -85,7 +90,7 @@ def migrate(db: sqlite3.Connection, steps: list[revisions.Revision], *, backward
     Forward steps write each `after` and append to the ledger; backward steps (already in reverse order) write each
     `before` and remove the ledger row.
     """
-    state = _actual(db)
+    state = _stored_state(db)
     for r in steps:
         revisions._apply_changes(state, r, backward=backward)
         for name, change in r.changes.items():
