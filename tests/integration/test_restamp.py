@@ -2,7 +2,7 @@
 
 `restamp` re-stamps a v0 ledger row only when the file on disk differs from the applied bytes in line endings alone.
 Any other mismatch, a v1 row, a diverging ledger or drift fails closed with the normal error and writes nothing.
-Read commands never re-stamp (I5). There is no audit record of a re-stamp until the cycle-3 events table.
+Read commands never re-stamp (I5). A re-stamp appends a `restamp` event (ADR-029; tests/integration/test_events_log.py).
 """
 import hashlib
 import json

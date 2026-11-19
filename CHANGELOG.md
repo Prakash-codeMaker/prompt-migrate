@@ -4,6 +4,7 @@ All notable changes to PromptMigrate. Before 1.0, CLI and file contracts may cha
 
 ## Unreleased
 
+- `restamp` now appends a `restamp` event (old and new checksum) per re-stamped row (#14, ADR-029); no event is written for a refused or no-op restamp. ADR-029 is implemented.
 - `upgrade` and `downgrade` now append one row per revision to a new append-only `events` table in the environment state DB (#14, ADR-029), in the same transaction as the ledger. Older state DBs gain the table on their first successful mutation; read commands do not need it. The `apply.py` fault-injection suite covers the event writes: a fault at the table creation, an event insert, a ledger write or the commit leaves ledger, `prompts` and `events` unchanged, including while adopting an older state DB.
 - Added `store/events.py` (#14, ADR-029): the append-only `events` table schema, `UPDATE`/`DELETE` triggers and row writer. Not wired into any command yet.
 - Proposed ADR-029, an append-only `events` table in each environment state DB (#14): one row per applied, reverted or re-stamped revision (ids, checksums, timestamp and command only), written in the same transaction as the ledger, with triggers that reject `UPDATE`/`DELETE`, adopted lazily on an old DB's first mutation. Docs only; nothing is implemented until the ADR is accepted.

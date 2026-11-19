@@ -6,7 +6,8 @@ import pytest
 
 import pmtest
 from promptmigrate.core import check, downgrade, load_revisions, upgrade
-from promptmigrate.errors import DriftError
+from promptmigrate.commands.restamp import restamp
+from promptmigrate.errors import DriftError, IntegrityError
 
 A, B = "a" * 12, "b" * 12
 
@@ -91,3 +92,41 @@ def test_events_contain_no_config_content(two):
     upgrade(two, "dev")
     flat = " ".join(str(value) for row in pmtest.read_events(two) for value in row)
     assert "A1" not in flat and "A2" not in flat
+
+
+def _applied_then_swapped(project):
+    pmtest.install_fixture(project, "crlf", "crlf")
+    upgrade(project, "dev")
+    pmtest.swap_line_endings(pmtest.pm_dir(project) / "versions" / "aaaaaaaaaaaa_create.json")
+
+
+def _ledger_checksum(project):
+    with closing(sqlite3.connect(db_file(project))) as db:
+        return db.execute("SELECT checksum FROM applied_revisions").fetchone()[0]
+
+
+def test_restamp_records_old_and_new_checksum(project):
+    _applied_then_swapped(project)
+    old = _ledger_checksum(project)
+    assert restamp(project, "dev") == ["a" * 12]
+    new = _ledger_checksum(project)
+    assert new != old
+    assert pmtest.read_events(project)[-1] == ("restamp", "a" * 12, new, old)
+
+
+def test_a_restamp_with_nothing_to_do_writes_no_event(project):
+    pmtest.install_fixture(project, "crlf", "crlf")
+    upgrade(project, "dev")
+    before = pmtest.read_events(project)
+    assert restamp(project, "dev") == []
+    assert pmtest.read_events(project) == before
+
+
+def test_a_refused_restamp_writes_no_event(project):
+    _applied_then_swapped(project)
+    path = pmtest.pm_dir(project) / "versions" / "aaaaaaaaaaaa_create.json"
+    path.write_bytes(path.read_bytes().replace(b"system", b"user"))  # a value edit: not line endings only
+    before = pmtest.read_events(project)
+    with pytest.raises(IntegrityError):
+        restamp(project, "dev")
+    assert pmtest.read_events(project) == before

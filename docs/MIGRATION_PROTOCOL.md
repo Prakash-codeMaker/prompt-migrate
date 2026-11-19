@@ -174,7 +174,7 @@ Windows can fail `check` after Git normalises it to LF. New revisions are v1 and
 `promptmigrate restamp --env <env>` is the explicit recovery (ADR-027). It re-stamps the ledger checksum of each
 applied v0 revision whose stored digest equals its current file normalised to all-LF or all-CRLF, computed only for
 a UTF-8 file, and it fails closed, writing nothing, on any other mismatch, including a non-UTF-8 v0 file. The v0
-checksum itself does not change, and no other command accepts a line-ending change.
+checksum itself does not change, and no other command accepts a line-ending change. A re-stamp appends a `restamp` event with the previous and new checksum (ADR-029).
 
 ## v1 artifact
 
