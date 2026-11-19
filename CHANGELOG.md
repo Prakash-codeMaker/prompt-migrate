@@ -69,6 +69,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Documentation
 
+- **Release guide** — `docs/RELEASING.md` is a maintainer guide for publishing `promptmigrate-cli` to PyPI: how the tag-triggered workflow runs, the one-time PyPI and `pypi` environment setup (tag rule `v*`), the pre-tag checklist, tagging and verification, and recovery when a release fails; `CONTRIBUTING.md` and `docs/HANDOFF.md` link to it
 - **README** — rewritten for contributors with badges, a Mermaid flow diagram, an SVG banner and a social preview image; the install section now points at `promptmigrate-cli`; the stale claim that a local Windows run gates merges is removed
 - **Integrity guidance** — applied v0 revisions are checked by raw bytes, v1 revisions by canonical parsed content; the v0 CRLF risk is documented, and ADR-025 freezes v0 semantics
 - **Design docs** — `ROADMAP.md`, `PRD.md`, `LOW_LEVEL_DESIGN.md`, `CLI_SPEC.md` and `HANDOFF.md` follow the shipped commands, exit codes, JSON output and strict loader; the verified test baseline is refreshed
