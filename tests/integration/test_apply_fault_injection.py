@@ -19,6 +19,7 @@ import pytest
 
 from promptmigrate import apply, revisions
 from promptmigrate.core import check, downgrade, upgrade
+from promptmigrate.errors import StorageError
 
 import pmtest
 
@@ -192,6 +193,29 @@ def test_fault_leaves_environment_wholly_old(scenario, direction, kind, n):
     assert check(scenario, "dev") == (after, 3)
     assert raw_state(scenario)[1] == revisions.replay_revisions(revisions.load_revisions(scenario)[:after])
     scenario.joinpath(".promptmigrate", "states", "dev.sqlite3").unlink()  # PermissionError on Windows if a handle leaked
+
+
+UNTYPED_READ = pytest.mark.xfail(
+    strict=True, raises=sqlite3.OperationalError,
+    reason="#93: the prompts read in apply.migrate is not wrapped in StorageError like the one in _verify")
+TYPED_READS = [
+    (direction, kind, n, mark)
+    for direction in sorted(COUNTS)
+    for kind, n, mark in (("ledger_read", 1, ()), ("prompts_read", 1, ()), ("prompts_read", 2, (UNTYPED_READ,)))
+]
+
+
+@pytest.mark.parametrize(
+    "direction, kind, n",
+    [pytest.param(d, k, n, marks=mark, id=f"{d}-{k}-{n}") for d, k, n, mark in TYPED_READS])
+def test_read_fault_raises_a_typed_storage_error(scenario, direction, kind, n):
+    action, _, _ = prepare(scenario, direction)
+    injector = Injector((kind, n))
+    with pytest.MonkeyPatch.context() as m:
+        injector.install(m)
+        with pytest.raises(StorageError) as raised:
+            action()
+    assert isinstance(raised.value.__cause__, sqlite3.OperationalError)
 
 
 def test_every_call_in_migrate_is_a_declared_injection_point():
