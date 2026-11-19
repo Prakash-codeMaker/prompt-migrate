@@ -31,7 +31,14 @@ It's designed to sit alongside prompt registries, not replace them.
 
 ## Install
 
-Python 3.10 or newer. PromptMigrate is not on PyPI yet ([#55](https://github.com/himanshu231204/prompt-migrate/issues/55)), so install from a clone:
+Python 3.10 or newer. The PyPI distribution is named `promptmigrate-cli` (the name `promptmigrate` was already taken); the command and the import are both `promptmigrate`:
+
+```bash
+python -m pip install promptmigrate-cli
+promptmigrate --version
+```
+
+To work on PromptMigrate itself, install from a clone instead:
 
 ```bash
 git clone https://github.com/himanshu231204/prompt-migrate.git
