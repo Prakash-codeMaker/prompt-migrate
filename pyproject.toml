@@ -9,7 +9,7 @@ description = "Alembic-inspired migration control for production AI prompts and 
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "PromptMigrate contributors" }]
+authors = [{ name = "Himanshu Kumar" }]
 keywords = ["llm", "prompt", "migration", "version-control", "agents"]
 classifiers = [
   "Development Status :: 3 - Alpha",
