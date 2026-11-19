@@ -49,7 +49,7 @@
 - [x] Fault injection in the `apply.py` transaction (#12): `tests/integration/test_apply_fault_injection.py` raises at every read, write and commit point of `upgrade`/`downgrade` (35 tests, both directions, plus 6 typed-error checks on the read points); each fault leaves rows and ledger unchanged, `check` clean, connections closed and a retry succeeding. An AST guard fails when `apply.migrate` gains an uncovered call. Mutation check: committing per step turns 15 tests red. It also fixes #93: the `prompts` read inside `apply.migrate` now raises `StorageError` like `_verify` (one shared `_stored_state` helper; exit code 5 unchanged). Baseline: 981 passed, 22 skipped (Windows 11, Python 3.11.9).
 - [ ] The rest of the fault-injection suite (#31, #32, #33); the lock and file-mode follow-ups (#79) are fixed.
 - [x] README quick-start commands run as a CLI smoke test against a temporary project (#21).
-- [ ] Append-only events table (#14): ADR-029 proposed (awaiting owner acceptance); implementation follows.
+- [ ] Append-only events table (#14): ADR-029 accepted; implementation in progress.
 - [ ] `rebase` for unapplied revisions (#15) is an RFC and needs an accepted ADR first.
 
 **Exit:** correct, stable local CLI with comprehensive automated evidence and honest documentation.
