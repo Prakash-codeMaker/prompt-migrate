@@ -213,7 +213,7 @@ wheels = [
 
 [package.optional-dependencies]
 toml = [
-    { name = "tomli" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
 
 [[package]]
@@ -351,7 +351,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -366,8 +366,8 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "exceptiongroup" },
-    { name = "sortedcontainers" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+    { name = "sortedcontainers", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/93/a8/bd70d7c2966e561228b9fdc075ee77c0ba577dcbbfbf921edf614db14f6a/hypothesis-6.168.5.tar.gz", hash = "sha256:76b9226962fe11d40858253a967eda95bb65811365286317e0118f4ec8f808c7", size = 511115, upload-time = "2026-10-05T23:26:35.416Z" }
 wheels = [
@@ -466,7 +466,7 @@ resolution-markers = [
     "python_full_version >= '3.11' and python_full_version < '3.15'",
 ]
 dependencies = [
-    { name = "sortedcontainers" },
+    { name = "sortedcontainers", marker = "python_full_version >= '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d6/0f/10b2076a1314c554eee58c26e1dbe630fd26a32773df2a63bd5dba5d9947/hypothesis-6.170.14.tar.gz", hash = "sha256:8272913eb34c4399a88cf8a9ecdb351c9ef8f621c061f2ac323362d4a66b755d", size = 521490, upload-time = "2026-10-30T06:51:55.943Z" }
 wheels = [
