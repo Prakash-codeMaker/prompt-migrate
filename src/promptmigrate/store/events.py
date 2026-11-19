@@ -21,10 +21,17 @@ _TABLE = """
         previous_checksum TEXT
     )
 """
-_TRIGGERS = tuple(
-    f"CREATE TRIGGER IF NOT EXISTS events_no_{verb.lower()} BEFORE {verb} ON events "
-    "BEGIN SELECT RAISE(ABORT, 'events is append-only'); END"
-    for verb in ("UPDATE", "DELETE")
+_TRIGGERS = (
+    *(
+        f"CREATE TRIGGER IF NOT EXISTS events_no_{verb.lower()} BEFORE {verb} ON events "
+        "BEGIN SELECT RAISE(ABORT, 'events is append-only'); END"
+        for verb in ("UPDATE", "DELETE")
+    ),
+    # INSERT OR REPLACE on an existing seq deletes the old row without firing the DELETE trigger (SQLite only does so
+    # with recursive_triggers on, a per-connection setting), so an insert that reuses a seq is rejected here.
+    "CREATE TRIGGER IF NOT EXISTS events_no_replace BEFORE INSERT ON events "
+    "WHEN EXISTS (SELECT 1 FROM events WHERE seq = NEW.seq) "
+    "BEGIN SELECT RAISE(ABORT, 'events is append-only'); END",
 )
 
 

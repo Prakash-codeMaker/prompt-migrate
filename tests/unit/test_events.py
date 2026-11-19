@@ -73,3 +73,19 @@ def test_ensure_and_record_never_commit(db):
     assert db.in_transaction
     db.rollback()
     assert db.execute("SELECT count(*) FROM sqlite_master WHERE name='events'").fetchone()[0] == 0
+
+
+def test_insert_or_replace_cannot_rewrite_an_existing_event(db):
+    events.ensure(db)
+    events.record(db, "upgrade", "a" * 12, "c" * 64)
+    with pytest.raises(sqlite3.DatabaseError, match="append-only"):
+        db.execute("INSERT OR REPLACE INTO events(seq, occurred_at, command, revision, checksum) "
+                   "VALUES(1, 'x', 'downgrade', 'forged', 'z')")
+    assert rows(db) == [("upgrade", "a" * 12, "c" * 64, None)]
+
+
+def test_normal_inserts_keep_getting_new_sequence_numbers(db):
+    events.ensure(db)
+    for _ in range(3):
+        events.record(db, "upgrade", "a" * 12, "c" * 64)
+    assert [row[0] for row in db.execute("SELECT seq FROM events ORDER BY seq")] == [1, 2, 3]

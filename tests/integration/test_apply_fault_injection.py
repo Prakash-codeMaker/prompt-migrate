@@ -41,10 +41,10 @@ FUNCTION_KINDS = {"canonical": "canonical", "_apply_changes": "apply_changes", "
 # How many times each point fires in one run, from prefix [A] up to head [A, B, C] and from head back to [A].
 COUNTS = {
     "up": {"ledger_read": 1, "prompts_read": 2, "apply_changes": 2, "canonical": 3, "prompts_upsert": 3,
-           "prompts_delete": 1, "ledger_timestamp": 2, "ledger_insert": 2, "events_ddl": 3, "event_insert": 2,
+           "prompts_delete": 1, "ledger_timestamp": 2, "ledger_insert": 2, "events_ddl": 4, "event_insert": 2,
            "commit": 1},
     "down": {"ledger_read": 1, "prompts_read": 2, "apply_changes": 2, "canonical": 3, "prompts_upsert": 3,
-             "prompts_delete": 1, "ledger_delete": 2, "events_ddl": 3, "event_insert": 2, "commit": 1},
+             "prompts_delete": 1, "ledger_delete": 2, "events_ddl": 4, "event_insert": 2, "commit": 1},
 }
 CASES = [(direction, kind, n) for direction, kinds in COUNTS.items() for kind, count in kinds.items()
          for n in range(1, count + 1)]
