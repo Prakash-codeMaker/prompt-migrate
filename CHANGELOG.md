@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Documentation
 
-- **README badge** — adds a PyPI version badge for `promptmigrate-cli` that links to the PyPI page
+- **README badge and install** — adds a PyPI version badge, a quick `pip install promptmigrate-cli` line near the top, and a CI example that installs the published package instead of the Git repository
 
 ---
 

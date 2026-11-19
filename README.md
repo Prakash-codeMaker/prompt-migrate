@@ -15,6 +15,12 @@
 
 **Alembic-style migrations for LLM prompts and AI agent configuration.** Keep prompts and agent configs as Git-tracked JSON, generate ordered, reviewable revisions, apply them to environments, roll them back, and fail CI when an environment drifts from history.
 
+```bash
+python -m pip install promptmigrate-cli
+```
+
+The PyPI package is `promptmigrate-cli`; the command and the import are both `promptmigrate`. See [Install](#install) for details.
+
 > [!NOTE]
 > PromptMigrate is a **v0.1 local prototype**. Environments are local SQLite files, and nothing is deployed to Langfuse, OpenAI, Azure AI Foundry or any other runtime. See [what is and isn't guaranteed](#safety-and-integrity).
 
@@ -153,10 +159,10 @@ project/
 
 ## Use in CI
 
-In your project's workflow, install PromptMigrate from its repository, then replay every revision into a throwaway environment and verify it:
+In your project's workflow, install PromptMigrate from PyPI, then replay every revision into a throwaway environment and verify it:
 
 ```yaml
-- run: python -m pip install "git+https://github.com/himanshu231204/prompt-migrate.git"
+- run: python -m pip install --upgrade promptmigrate-cli
 - run: promptmigrate validate --strict --drafts-clean
 - run: promptmigrate upgrade head --env dev
 - run: promptmigrate check --env dev --require-head
