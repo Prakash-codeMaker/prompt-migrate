@@ -195,19 +195,11 @@ def test_fault_leaves_environment_wholly_old(scenario, direction, kind, n):
     scenario.joinpath(".promptmigrate", "states", "dev.sqlite3").unlink()  # PermissionError on Windows if a handle leaked
 
 
-UNTYPED_READ = pytest.mark.xfail(
-    strict=True, raises=sqlite3.OperationalError,
-    reason="#93: the prompts read in apply.migrate is not wrapped in StorageError like the one in _verify")
-TYPED_READS = [
-    (direction, kind, n, mark)
-    for direction in sorted(COUNTS)
-    for kind, n, mark in (("ledger_read", 1, ()), ("prompts_read", 1, ()), ("prompts_read", 2, (UNTYPED_READ,)))
-]
+TYPED_READS = [(direction, kind, n) for direction in sorted(COUNTS)
+               for kind, n in (("ledger_read", 1), ("prompts_read", 1), ("prompts_read", 2))]
 
 
-@pytest.mark.parametrize(
-    "direction, kind, n",
-    [pytest.param(d, k, n, marks=mark, id=f"{d}-{k}-{n}") for d, k, n, mark in TYPED_READS])
+@pytest.mark.parametrize("direction, kind, n", TYPED_READS, ids=[f"{d}-{k}-{n}" for d, k, n in TYPED_READS])
 def test_read_fault_raises_a_typed_storage_error(scenario, direction, kind, n):
     action, _, _ = prepare(scenario, direction)
     injector = Injector((kind, n))
@@ -227,6 +219,6 @@ def test_every_call_in_migrate_is_a_declared_injection_point():
         if name == "execute":
             sql.add(classify(call.args[0].value))
     assert sql == WRITE_KINDS, "migrate runs SQL that no injection point covers; add it to SQL_KINDS and COUNTS"
-    covered = set(FUNCTION_KINDS) | {"execute", "items", "isoformat", "_actual"}
+    covered = set(FUNCTION_KINDS) | {"execute", "items", "isoformat", "_stored_state"}
     assert names <= covered, f"migrate calls {sorted(names - covered)}; add injection points for them"
     assert set(FUNCTION_KINDS.values()) <= {kind for kinds in COUNTS.values() for kind in kinds}
