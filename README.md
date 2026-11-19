@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/himanshu231204/prompt-migrate/actions/workflows/ci.yml"><img src="https://github.com/himanshu231204/prompt-migrate/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" /></a>
+  <a href="https://pypi.org/project/promptmigrate-cli/"><img src="https://img.shields.io/pypi/v/promptmigrate-cli?label=PyPI" alt="PyPI version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" /></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg?logo=python&logoColor=white" alt="Python 3.10+" />
   <img src="https://img.shields.io/badge/runtime_deps-0_(stdlib_only)-2ea44f.svg" alt="Zero runtime dependencies" />

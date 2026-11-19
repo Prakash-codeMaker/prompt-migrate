@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Documentation
+
+- **README badge** — adds a PyPI version badge for `promptmigrate-cli` that links to the PyPI page
+
 ---
 
 ## [0.1.0] - 2026-11-19
