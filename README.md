@@ -145,6 +145,25 @@ flowchart LR
 | `get assistant --env dev` | Read a config from a local environment |
 | `env add qa` / `env list` | Declare and list local environments |
 
+### Recovering from line-ending drift
+
+If `check` exits with code `4` and reports that a migration file was modified after apply because of line endings only, this may happen when a v0 revision was created and applied on Windows before Git normalized its line endings.
+
+When the error explicitly says `line endings only`, run `promptmigrate restamp --env <env>`, replacing `<env>` with the affected environment name. For example, for the `dev` environment:
+
+```bash
+promptmigrate restamp --env dev
+```
+
+Example successful output (the revision ID will differ):
+
+```text
+Restamped 1 revision(s) in dev: <revision-id>
+```
+
+`restamp` accepts only line-ending-only changes to applied v0 revisions. It does not repair other file modifications or general state drift.
+
+
 Global flags: `--project <dir>` targets another project directory, and `--output json` prints machine-readable results. Exit codes are documented in [`docs/CLI_SPEC.md`](docs/CLI_SPEC.md).
 
 ## Project layout
