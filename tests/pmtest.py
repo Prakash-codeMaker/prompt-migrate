@@ -236,7 +236,7 @@ def snapshot(project):
     }
 
 
-def read_events(project, env="dev") -> list[tuple]:
+def read_events(project, env="dev") -> list[tuple[str, str, str, str | None]]:
     """(command, revision, checksum, previous_checksum) rows of an env's events table; [] if it does not exist."""
     path = pm_dir(project) / "states" / f"{env}.sqlite3"
     if not path.exists():

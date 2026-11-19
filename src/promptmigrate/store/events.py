@@ -22,11 +22,10 @@ _TABLE = """
     )
 """
 _TRIGGERS = (
-    *(
-        f"CREATE TRIGGER IF NOT EXISTS events_no_{verb.lower()} BEFORE {verb} ON events "
-        "BEGIN SELECT RAISE(ABORT, 'events is append-only'); END"
-        for verb in ("UPDATE", "DELETE")
-    ),
+    "CREATE TRIGGER IF NOT EXISTS events_no_update BEFORE UPDATE ON events "
+    "BEGIN SELECT RAISE(ABORT, 'events is append-only'); END",
+    "CREATE TRIGGER IF NOT EXISTS events_no_delete BEFORE DELETE ON events "
+    "BEGIN SELECT RAISE(ABORT, 'events is append-only'); END",
     # INSERT OR REPLACE on an existing seq deletes the old row without firing the DELETE trigger (SQLite only does so
     # with recursive_triggers on, a per-connection setting), so an insert that reuses a seq is rejected here.
     "CREATE TRIGGER IF NOT EXISTS events_no_replace BEFORE INSERT ON events "
@@ -39,13 +38,13 @@ def ensure(db: sqlite3.Connection) -> None:
     """Create the table and its append-only triggers if absent; fail closed on a table with other columns."""
     try:
         db.execute(_TABLE)
-        for trigger in _TRIGGERS:
-            db.execute(trigger)
         columns = tuple(row[1] for row in db.execute("PRAGMA table_info(events)"))
+        if columns != COLUMNS:
+            raise StorageError("Invalid environment state: events table has unexpected columns")
+        for trigger in _TRIGGERS:  # only on a table of the expected shape
+            db.execute(trigger)
     except sqlite3.Error as exc:  # e.g. a view named `events`, or a same-named trigger on another table
         raise StorageError(f"Invalid environment state: cannot create the events table: {exc}") from exc
-    if columns != COLUMNS:
-        raise StorageError("Invalid environment state: events table has unexpected columns")
 
 
 def record(db: sqlite3.Connection, command: str, revision: str, checksum: str,

@@ -93,6 +93,12 @@ def test_normal_inserts_keep_getting_new_sequence_numbers(db):
 
 def test_a_non_table_named_events_fails_closed_with_a_typed_error(db):
     db.execute("CREATE VIEW events AS SELECT 1 AS seq")
-    with pytest.raises(StorageError, match="events") as raised:
+    with pytest.raises(StorageError, match="events"):
         events.ensure(db)
-    assert isinstance(raised.value.__cause__, sqlite3.Error)
+
+
+def test_a_rejected_table_gets_no_triggers(db):
+    db.execute("CREATE TABLE events (seq INTEGER PRIMARY KEY, config TEXT)")
+    with pytest.raises(StorageError):
+        events.ensure(db)
+    assert db.execute("SELECT count(*) FROM sqlite_master WHERE type='trigger'").fetchone()[0] == 0
