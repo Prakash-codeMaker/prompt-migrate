@@ -89,3 +89,10 @@ def test_normal_inserts_keep_getting_new_sequence_numbers(db):
     for _ in range(3):
         events.record(db, "upgrade", "a" * 12, "c" * 64)
     assert [row[0] for row in db.execute("SELECT seq FROM events ORDER BY seq")] == [1, 2, 3]
+
+
+def test_a_non_table_named_events_fails_closed_with_a_typed_error(db):
+    db.execute("CREATE VIEW events AS SELECT 1 AS seq")
+    with pytest.raises(StorageError, match="events") as raised:
+        events.ensure(db)
+    assert isinstance(raised.value.__cause__, sqlite3.Error)

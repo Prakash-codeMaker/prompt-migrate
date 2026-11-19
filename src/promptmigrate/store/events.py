@@ -37,10 +37,13 @@ _TRIGGERS = (
 
 def ensure(db: sqlite3.Connection) -> None:
     """Create the table and its append-only triggers if absent; fail closed on a table with other columns."""
-    db.execute(_TABLE)
-    for trigger in _TRIGGERS:
-        db.execute(trigger)
-    columns = tuple(row[1] for row in db.execute("PRAGMA table_info(events)"))
+    try:
+        db.execute(_TABLE)
+        for trigger in _TRIGGERS:
+            db.execute(trigger)
+        columns = tuple(row[1] for row in db.execute("PRAGMA table_info(events)"))
+    except sqlite3.Error as exc:  # e.g. a view named `events`, or a same-named trigger on another table
+        raise StorageError(f"Invalid environment state: cannot create the events table: {exc}") from exc
     if columns != COLUMNS:
         raise StorageError("Invalid environment state: events table has unexpected columns")
 

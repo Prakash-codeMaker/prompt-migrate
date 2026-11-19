@@ -4,7 +4,9 @@ import importlib
 import importlib.util
 import json
 import shutil
+import sqlite3
 import warnings
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -236,8 +238,6 @@ def snapshot(project):
 
 def read_events(project, env="dev") -> list[tuple]:
     """(command, revision, checksum, previous_checksum) rows of an env's events table; [] if it does not exist."""
-    import sqlite3
-    from contextlib import closing
     path = pm_dir(project) / "states" / f"{env}.sqlite3"
     if not path.exists():
         return []
