@@ -117,6 +117,7 @@ Basenames stay unique across directories, because pytest's default `prepend` imp
 | Fault | Expected outcome |
 |---|---|
 | Failure after updating one prompt but before ledger insert | Whole local SQLite transaction rolls back |
+| Failure at any write, read or commit point of `upgrade`/`downgrade` (#12) | Rows and ledger both unchanged; `check` clean; the same command succeeds on retry |
 | Applied migration file mutated | Next check/apply blocks |
 | Environment prompt manually changed | Drift error blocks |
 | Two revisions created concurrently at same source head | Detect branch; no auto-merge |
@@ -124,6 +125,16 @@ Basenames stay unique across directories, because pytest's default `prepend` imp
 | External provider write fails halfway (future) | Release pointer unchanged; prepare retried/reconciled |
 | Two production CI jobs promote simultaneously (future) | At most one wins CAS; loser re-reads state |
 | Runtime cannot reach controller (future) | Serve verified pinned release per explicit cache policy |
+
+`tests/integration/test_apply_fault_injection.py` covers the `apply.py` rows. It raises at each point reachable from
+`apply.migrate` and the `_verify` reads, in both directions: the ledger and `prompts` reads, `_apply_changes`,
+`canonical`, the `prompts` upsert and delete, the ledger timestamp, insert and delete, and `COMMIT`. Faults are patched
+on the defining modules (`apply`, `revisions`, `sqlite3`), never `core` or `cli`; SQL and commit faults go through a
+proxy connection, because `sqlite3.Connection` is a C type that cannot be patched. After each fault the env file must
+equal its pre-fault ledger and rows, `check` must report the old state, every connection must be closed and the same
+command must then succeed. A recording run checks the table of points against what the code really does, and an AST
+guard fails when `migrate` gains a call the table does not cover, so a new write cannot ship without a fault case.
+It tests the local SQLite transaction only, not crash recovery (a killed process) or remote writes.
 
 ## Suggested CI stages
 
