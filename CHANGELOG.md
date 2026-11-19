@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- **Package author** — the `pyproject.toml` author is now Himanshu Kumar instead of "PromptMigrate contributors"
 - **Exit codes** — **Contract:** handled errors exit by type: 3 for schema and source errors, 4 for drift, integrity and conflicts, 5 for storage, `sqlite3` and `OSError` failures; other handled errors still exit 1 and usage errors 2. Scripts testing for exactly 1 must change
 - **Strict parsing** — **Contract:** duplicate keys, `NaN`/`Infinity`, number literals that overflow to infinity, JSON nested too deep, and files resolving outside `.promptmigrate/` (including a symlinked `versions/` or `drafts/`) are rejected everywhere (tier A)
 - **Canonical equality** — **Contract:** configs compare by canonical JSON, so `1`, `1.0` and `true` are distinct; a `1` → `true` draft edit produces a revision, bool/int drift in an env DB is detected, and a hand-edited revision that relied on the old conflation fails with `unexpected current value`
