@@ -174,7 +174,7 @@ Windows can fail `check` after Git normalises it to LF. New revisions are v1 and
 `promptmigrate restamp --env <env>` is the explicit recovery (ADR-027). It re-stamps the ledger checksum of each
 applied v0 revision whose stored digest equals its current file normalised to all-LF or all-CRLF, computed only for
 a UTF-8 file, and it fails closed, writing nothing, on any other mismatch, including a non-UTF-8 v0 file. The v0
-checksum itself does not change, and no other command accepts a line-ending change.
+checksum itself does not change, and no other command accepts a line-ending change. A re-stamp appends a `restamp` event with the previous and new checksum (ADR-029).
 
 ## v1 artifact
 
@@ -233,7 +233,7 @@ The root object has exactly one `environments` object. Names match `[A-Za-z][A-Z
 
 Without a manifest, the store infers `dev`, `staging` and every `states/*.sqlite3` stem matching the environment-name syntax, in memory. Stems that fail the syntax could not have been created by any release and are ignored; reserved and case-colliding stems may be real state and fail closed. Reads do not write this inferred manifest. A successful `upgrade` or `downgrade` writes it after its transaction commits and emits one adoption warning; a rejected command writes nothing. Read-only verification runs in one SQLite read transaction, so the ledger and configs come from the same snapshot. New manifest additions serialize their read-modify-replace operation.
 
-`check`, `current`, and `get` open existing state with SQLite `mode=ro`; `env list` checks filenames only. WAL-mode databases are rejected because SQLite read-only WAL access can create sidecar files. Missing DB means the empty base state. Existing DBs must contain both `applied_revisions` and `prompts`; missing tables, corrupt files, or state symlinks are storage errors and are not repaired. `upgrade` and `downgrade` initialize only an absent DB and perform state plus ledger changes in one SQLite transaction. CLI status labels use the canonical manifest spelling. **`--env prod` means only local `prod.sqlite3`; it does not mean actual production.** Names `prod`, `production`, and `live` produce an explicit local-only warning.
+`check`, `current`, and `get` open existing state with SQLite `mode=ro`; `env list` checks filenames only. WAL-mode databases are rejected because SQLite read-only WAL access can create sidecar files. Missing DB means the empty base state. Existing DBs must contain both `applied_revisions` and `prompts`; missing tables, corrupt files, or state symlinks are storage errors and are not repaired. `upgrade` and `downgrade` initialize only an absent DB and perform state plus ledger changes in one SQLite transaction. Each applied or reverted revision also appends a row to the append-only `events` table (ADR-029) in that same transaction; the table is created on the first successful mutation, so older state databases are adopted lazily, and reads never require it. CLI status labels use the canonical manifest spelling. **`--env prod` means only local `prod.sqlite3`; it does not mean actual production.** Names `prod`, `production`, and `live` produce an explicit local-only warning.
 
 ## Revision-graph guarantees
 

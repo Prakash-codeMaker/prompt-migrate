@@ -6,13 +6,14 @@ import argparse
 from pathlib import Path
 
 from .. import apply, output, revisions, store
+from ..store import events
 
 
 def restamp(project_dir: Path, env: str) -> list[str]:
     """Re-stamp each applied v0 row whose file differs only in line endings (ADR-027); all or nothing.
 
-    Any other mismatch raises the normal IntegrityError and nothing is written. No audit record is kept until the
-    cycle-3 events table.
+    Any other mismatch raises the normal IntegrityError and nothing is written. Each re-stamped row appends a
+    `restamp` event (ADR-029).
     """
     env = store.resolve_environment(project_dir, env)
     revisions_ = revisions.load_revisions(project_dir)
@@ -22,8 +23,12 @@ def restamp(project_dir: Path, env: str) -> list[str]:
         with store.connect_write(project_dir, env) as db:
             db.execute("BEGIN IMMEDIATE")
             stale = apply.line_ending_only(db, revisions_)
+            if stale:
+                events.ensure(db)  # adopts an old DB in this transaction; skipped on a no-op (ADR-029)
+            old = dict(apply._applied(db))
             for r in stale:
                 db.execute("UPDATE applied_revisions SET checksum=? WHERE revision=?", (r.checksum, r.revision))
+                events.record(db, "restamp", r.revision, r.checksum, old[r.revision])
             apply._verify(db, revisions_, env)
     return [r.revision for r in stale]
 
