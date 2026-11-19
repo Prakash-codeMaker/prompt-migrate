@@ -50,6 +50,7 @@
 - [ ] The rest of the fault-injection suite (#31, #32, #33); the lock and file-mode follow-ups (#79) are fixed.
 - [x] README quick-start commands run as a CLI smoke test against a temporary project (#21).
 - [ ] Append-only events table (#14); `rebase` for unapplied revisions (#15). Both are RFCs and need an accepted ADR first.
+  - 2026-11-19: ADR-030 (`rebase`, #15) is accepted in `docs/DECISIONS.md`; implementation is the next step.
 
 **Exit:** correct, stable local CLI with comprehensive automated evidence and honest documentation.
 
