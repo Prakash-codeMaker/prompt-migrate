@@ -9,7 +9,12 @@ import sqlite3
 
 from ..errors import StorageError
 
-COLUMNS = ("seq", "occurred_at", "command", "revision", "checksum", "previous_checksum")
+# (name, declared type, NOT NULL flag, primary-key flag) as PRAGMA table_info reports them for _TABLE.
+_SHAPE = (
+    ("seq", "INTEGER", 0, 1), ("occurred_at", "TEXT", 1, 0), ("command", "TEXT", 1, 0),
+    ("revision", "TEXT", 1, 0), ("checksum", "TEXT", 1, 0), ("previous_checksum", "TEXT", 0, 0),
+)
+COLUMNS = tuple(column[0] for column in _SHAPE)
 
 _TABLE = """
     CREATE TABLE IF NOT EXISTS events (
@@ -34,15 +39,23 @@ _TRIGGERS = (
 )
 
 
+_TRIGGER_NAMES = {"events_no_update", "events_no_delete", "events_no_replace"}
+
+
 def ensure(db: sqlite3.Connection) -> None:
-    """Create the table and its append-only triggers if absent; fail closed on a table with other columns."""
+    """Create the table and its append-only triggers if absent; fail closed on any other shape."""
     try:
         db.execute(_TABLE)
-        columns = tuple(row[1] for row in db.execute("PRAGMA table_info(events)"))
-        if columns != COLUMNS:
+        shape = tuple((row[1], row[2].upper(), row[3], row[5]) for row in db.execute("PRAGMA table_info(events)"))
+        if shape != _SHAPE:
             raise StorageError("Invalid environment state: events table has unexpected columns")
         for trigger in _TRIGGERS:  # only on a table of the expected shape
             db.execute(trigger)
+        # IF NOT EXISTS skips a trigger name already used on another table, which would leave `events` unguarded.
+        bound = {row[0] for row in db.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='events'")}
+        if bound != _TRIGGER_NAMES:
+            raise StorageError("Invalid environment state: events triggers are missing or bound to another table")
     except sqlite3.Error as exc:  # e.g. a view named `events`, or a same-named trigger on another table
         raise StorageError(f"Invalid environment state: cannot create the events table: {exc}") from exc
 

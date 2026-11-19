@@ -102,3 +102,17 @@ def test_a_rejected_table_gets_no_triggers(db):
     with pytest.raises(StorageError):
         events.ensure(db)
     assert db.execute("SELECT count(*) FROM sqlite_master WHERE type='trigger'").fetchone()[0] == 0
+
+
+def test_same_column_names_with_a_wrong_sequence_definition_fail_closed(db):
+    db.execute("CREATE TABLE events (seq TEXT, occurred_at TEXT NOT NULL, command TEXT NOT NULL, "
+               "revision TEXT NOT NULL, checksum TEXT NOT NULL, previous_checksum TEXT)")
+    with pytest.raises(StorageError, match="events"):
+        events.ensure(db)
+
+
+def test_a_trigger_name_taken_on_another_table_fails_closed(db):
+    db.execute("CREATE TABLE other (x)")
+    db.execute("CREATE TRIGGER events_no_update BEFORE UPDATE ON other BEGIN SELECT 1; END")
+    with pytest.raises(StorageError, match="trigger"):
+        events.ensure(db)
