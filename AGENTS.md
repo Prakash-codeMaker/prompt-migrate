@@ -113,7 +113,7 @@ Working style, adapted from the Karpathy guidelines (`andrej-karpathy-skills`, M
 
 Before every commit:
 
-- `CHANGELOG.md`: add an entry under **Unreleased**.
+- `CHANGELOG.md` ([Keep a Changelog](https://keepachangelog.com/en/1.0.0/)): add one line under `## [Unreleased]`, in the group `Added`, `Changed`, `Fixed`, `Removed`, `Testing`, `Documentation` or `Internal`, as `- **Name** — description (#N)`. Mark a CLI or file contract change **Contract:**.
 - `docs/ROADMAP.md`: tick finished items and update the status lines and "First next step".
 - Behavior changes also update `docs/CLI_SPEC.md`, `docs/MIGRATION_PROTOCOL.md` and `docs/DECISIONS.md` in the same PR.
 
