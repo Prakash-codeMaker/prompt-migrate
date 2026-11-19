@@ -93,7 +93,7 @@ def migrate(db: sqlite3.Connection, steps: list[revisions.Revision], *, backward
     """
     state = _stored_state(db)
     if steps:
-        events.ensure(db)  # adopts an older state DB inside this transaction (ADR-029)
+        events.ensure(db)  # adopts an old DB in this transaction; skipped on a no-op (ADR-029)
     for r in steps:
         revisions._apply_changes(state, r, backward=backward)
         for name, change in r.changes.items():

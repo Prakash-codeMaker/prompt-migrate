@@ -24,7 +24,7 @@ def restamp(project_dir: Path, env: str) -> list[str]:
             db.execute("BEGIN IMMEDIATE")
             stale = apply.line_ending_only(db, revisions_)
             if stale:
-                events.ensure(db)  # adopts an older state DB inside this transaction (ADR-029)
+                events.ensure(db)  # adopts an old DB in this transaction; skipped on a no-op (ADR-029)
             old = dict(apply._applied(db))
             for r in stale:
                 db.execute("UPDATE applied_revisions SET checksum=? WHERE revision=?", (r.checksum, r.revision))
