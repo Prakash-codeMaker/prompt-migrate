@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Documentation
+- **README** — explain recovery from line-ending drift (#104)
 
 - **Roadmap** — records that `promptmigrate-cli` 0.1.0 is published on PyPI (#55); the documented upgrade policy (#56) remains open
 - **README badge and install** — adds a PyPI version badge, a quick `pip install promptmigrate-cli` line near the top, and a CI example that installs the published package instead of the Git repository
