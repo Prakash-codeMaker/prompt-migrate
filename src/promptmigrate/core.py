@@ -14,6 +14,7 @@ from .commands.get import get_config, redacted_config
 from .commands.history import redacted_history
 from .commands.init import init
 from .commands.plan import plan
+from .commands.rebase import rebase
 from .commands.restamp import restamp
 from .commands.revision import revision
 from .commands.upgrade import upgrade

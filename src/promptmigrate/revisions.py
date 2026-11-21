@@ -58,8 +58,13 @@ def _format_version(item: dict[str, Any], name: str) -> int:
     return 1
 
 
-def load_revisions(project_dir: Path) -> list[Revision]:
-    root = project.require_init(project_dir)
+def _read_revision_files(root: Path) -> tuple[dict[str, Revision], dict[str, list[str]]]:
+    """Read and validate every revision file under `root/versions`, returning revisions by id.
+
+    Shared by `load_revisions` (linear-chain enforcement) and `load_revision_graph`
+    (fork-tolerant, rebase only). Does not enforce linearity: forks, missing parents,
+    and disconnected graphs are all represented here and diagnosed by the caller.
+    """
     unsorted: dict[str, Revision] = {}
     violations: dict[str, list[str]] = {}
     for path in sorted((root / "versions").glob("*.json")):
@@ -97,14 +102,6 @@ def load_revisions(project_dir: Path) -> list[Revision]:
         variants: frozenset[str] = frozenset()
         if version == 0:
             checksum = _hash(raw)
-            # CR/LF bytes (b"\r\n") are only ever whitespace in UTF-8 JSON. `json.loads` also auto-detects and
-            # accepts UTF-16/32, where a single code unit such as U+0D0A encodes as the same two bytes as a byte-
-            # level CR LF; replacing it would treat a real value change as a line-ending-only edit (Finding 1,
-            # 2026-11-13 final review). `raw.decode("utf-8")` alone is not a reliable test here: a mostly-ASCII
-            # UTF-16 file is full of null bytes, which are themselves valid (if meaningless) UTF-8, so it can
-            # decode without error even though `json.loads` did not read it as UTF-8. Ask the same question
-            # `json.loads` asks of these bytes (`json.detect_encoding`, the encoding-sniffing it uses for bytes
-            # input) instead, so "UTF-8" here means what it means to the loader, with or without a BOM.
             if json.detect_encoding(raw) in ("utf-8", "utf-8-sig"):
                 variants = frozenset(line_ending_variants(raw))
         else:
@@ -115,6 +112,95 @@ def load_revisions(project_dir: Path) -> list[Revision]:
         unsorted[rid] = Revision(
             rid, parent, item["message"], item["created_at"], changes, checksum, path, version, variants
         )
+    return unsorted, violations
+
+
+@dataclass(frozen=True)
+class ForkedHistory:
+    """A forked source history: one root, one fork point, two linear branches (rebase only).
+
+    `trunk` is the chain from root to the fork point (oldest first, inclusive).
+    `branch_one` and `branch_two` run from the fork's immediate child to each tip,
+    oldest first. `tips` gives the two branch-tip ids.
+    """
+
+    revisions: dict[str, Revision]
+    trunk: tuple[Revision, ...]
+    root: Revision
+    fork: Revision
+    branch_one: tuple[Revision, ...]
+    branch_two: tuple[Revision, ...]
+
+    @property
+    def tips(self) -> tuple[str, str]:
+        return (self.branch_one[-1].revision, self.branch_two[-1].revision)
+
+
+def load_revision_graph(project_dir: Path) -> ForkedHistory:
+    """Fork-tolerant loader used only by `rebase`; `load_revisions` stays strict.
+
+    Accepts exactly one root, exactly one fork point (one node with two children), and
+    two linear branches from the fork to their tips. Any other shape raises
+    `RevisionGraphError` and writes nothing.
+    """
+    root = project.require_init(project_dir)
+    unsorted, _violations = _read_revision_files(root)
+    if not unsorted:
+        raise RevisionGraphError("No revisions to rebase")
+    roots = [r for r in unsorted.values() if r.down_revision is None]
+    if len(roots) != 1:
+        raise RevisionGraphError("Rebase requires exactly one root revision")
+    root_rev = roots[0]
+    children: dict[str, list[Revision]] = {}
+    for r in unsorted.values():
+        if r.down_revision is not None:
+            if r.down_revision not in unsorted:
+                raise RevisionGraphError(f"Missing parent of revision {r.revision}: {r.down_revision}")
+            children.setdefault(r.down_revision, []).append(r)
+    forks = [rid for rid, kids in children.items() if len(kids) > 1]
+    if len(forks) != 1:
+        raise RevisionGraphError("Rebase requires exactly one fork point in history")
+    fork_id = forks[0]
+    fork_kids = children[fork_id]
+    if len(fork_kids) != 2:
+        raise RevisionGraphError("Rebase requires exactly two branches at the fork")
+    fork_rev = unsorted[fork_id]
+    branches: list[list[Revision]] = []
+    for kid in fork_kids:
+        chain: list[Revision] = [kid]
+        while True:
+            nxt = children.get(chain[-1].revision, [])
+            if len(nxt) > 1:
+                raise RevisionGraphError("Rebase requires linear branches (no further forks)")
+            if not nxt:
+                break
+            chain.append(nxt[0])
+        branches.append(chain)
+    # Walk from the root to the fork to confirm connectivity and no cycles, collecting the trunk.
+    trunk: list[Revision] = []
+    visited: set[str] = set()
+    current: Revision | None = root_rev
+    while current is not None and current.revision not in visited:
+        visited.add(current.revision)
+        trunk.append(current)
+        if current.revision == fork_id:
+            break
+        current = children.get(current.revision, [None])[0]
+    if not trunk or trunk[-1].revision != fork_id:
+        raise RevisionGraphError("Disconnected or cyclic migration history")
+    return ForkedHistory(
+        revisions=unsorted,
+        trunk=tuple(trunk),
+        root=root_rev,
+        fork=fork_rev,
+        branch_one=tuple(branches[0]),
+        branch_two=tuple(branches[1]),
+    )
+
+
+def load_revisions(project_dir: Path) -> list[Revision]:
+    root = project.require_init(project_dir)
+    unsorted, violations = _read_revision_files(root)
 
     if not unsorted:
         return []
