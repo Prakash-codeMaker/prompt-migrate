@@ -5,17 +5,18 @@ loader and repairs one fork by minting new ids for the moved branch.
 """
 import json
 import sqlite3
-from contextlib import closing
+from contextlib import closing, contextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
 from pmtest import CFG, create, pm_dir, run_cli, tree_snapshot, write_revision
-from promptmigrate import apply
+from promptmigrate import apply, project as project_mod, revisions as revisions_mod, store
 from promptmigrate.commands.rebase import rebase
 from promptmigrate.core import load_revisions
 from promptmigrate.revisions import _apply_changes, load_revision_graph
-from promptmigrate.errors import MigrationConflictError, RevisionGraphError
+from promptmigrate.errors import MigrationConflictError, MigrationError, RevisionGraphError, StorageError
 
 A = "a" * 12
 B = "b" * 12
@@ -200,13 +201,117 @@ def test_cli_missing_onto_exits_4(project, capsys):
 
 
 def test_corrupt_ledger_fails_closed(project):
-    """An unreadable/corrupt env ledger fails closed; nothing is written."""
+    """An unreadable/corrupt env ledger fails closed with a typed storage error; nothing is written."""
     fork_project(project)
     _dev_applied(project, [A])  # dev ledger has A
     # Corrupt the dev state DB.
     db_path = pm_dir(project) / "states" / "dev.sqlite3"
     db_path.write_bytes(b"not a sqlite database")
     before = tree_snapshot(project)
-    with pytest.raises((sqlite3.Error, Exception)):
+    with pytest.raises(StorageError, match="dev"):
         rebase(project, onto=B)
+    assert tree_snapshot(project) == before
+
+
+def test_cli_corrupt_ledger_exits_5_with_json_error(project, capsys):
+    fork_project(project)
+    _dev_applied(project, [A])
+    (pm_dir(project) / "states" / "dev.sqlite3").write_bytes(b"not a sqlite database")
+    before = tree_snapshot(project)
+    code, out, err = run_cli(capsys, project, "--output", "json", "rebase", "--onto", B)
+    assert code == 5
+    doc = json.loads(out or err)
+    assert doc["ok"] is False
+    assert (doc["error"]["code"], doc["error"]["exit_code"]) == ("storage", 5)
+    assert tree_snapshot(project) == before
+
+
+def chain_fork_project(project):
+    """A forked into B (stay, updates assistant) and the two-revision chain C -> D (move)."""
+    D = "d" * 12
+    write_revision(project, A, None, {"assistant": create(CFG)})
+    write_revision(project, B, A, {"assistant": {"before": CFG, "after": assistant("B")}})
+    write_revision(project, C, A, {"other": {"before": None, "after": assistant("C")}})
+    write_revision(project, D, C, {"other": {"before": assistant("C"), "after": assistant("D")}})
+    return D
+
+
+def test_rebase_holds_the_project_lock_through_publication(project, monkeypatch):
+    """The whole rebase (history read, publish, delete, verify) runs under one project lock."""
+    fork_project(project)
+    held = []
+    depth = {"n": 0}
+    real_lock = store._project_lock
+    real_write = project_mod.write_new_file
+
+    @contextmanager
+    def tracking_lock(project_dir):
+        with real_lock(project_dir):
+            depth["n"] += 1
+            try:
+                yield
+            finally:
+                depth["n"] -= 1
+
+    def checking_write(path, text):
+        held.append(depth["n"] > 0)
+        return real_write(path, text)
+
+    monkeypatch.setattr(store, "_project_lock", tracking_lock)
+    monkeypatch.setattr(project_mod, "write_new_file", checking_write)
+    rebase(project, onto=B)
+    assert held == [True]
+
+
+def test_invalid_dependency_on_moved_branch_is_refused_and_writes_nothing(project):
+    """C claims `other` already exists (non-null before) but nothing created it: refuse, do not rewrite to None."""
+    write_revision(project, A, None, {"assistant": create(CFG)})
+    write_revision(project, B, A, {"assistant": {"before": CFG, "after": assistant("B")}})
+    write_revision(project, C, A, {"other": {"before": assistant("x"), "after": assistant("C")}})
+    before = tree_snapshot(project)
+    with pytest.raises(MigrationConflictError, match="invalid revision dependency"):
+        rebase(project, onto=B)
+    assert tree_snapshot(project) == before
+
+
+def test_revision_outside_trunk_and_branches_is_refused_before_any_write(project):
+    """A disconnected self-parent revision passes the fork checks but must not let rebase touch files."""
+    fork_project(project)
+    D = "d" * 12
+    write_revision(project, D, D, {"third": create(CFG)})
+    before = tree_snapshot(project)
+    with pytest.raises(RevisionGraphError, match="Disconnected or cyclic"):
+        rebase(project, onto=B)
+    assert tree_snapshot(project) == before
+
+
+def test_failed_deletion_restores_the_original_files(project, monkeypatch):
+    """D is deleted, then deleting C raises: originals come back and the replacements are removed."""
+    chain_fork_project(project)
+    before = tree_snapshot(project)
+    real_unlink = Path.unlink
+
+    def failing_unlink(self, *args, **kwargs):
+        if self.name == f"{C}.json":
+            raise OSError("simulated unlink failure")
+        return real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", failing_unlink)
+    with pytest.raises(OSError, match="simulated unlink failure"):
+        rebase(project, onto=B)
+    monkeypatch.undo()
+    assert tree_snapshot(project) == before
+
+
+def test_failed_final_verification_restores_the_original_files(project, monkeypatch):
+    chain_fork_project(project)
+    before = tree_snapshot(project)
+
+    def failing_load(project_dir):
+        raise RevisionGraphError("simulated verification failure")
+
+    monkeypatch.setattr(revisions_mod, "load_revisions", failing_load)
+    with pytest.raises(RevisionGraphError, match="simulated verification failure"):
+        rebase(project, onto=B)
+    monkeypatch.undo()
     assert tree_snapshot(project) == before

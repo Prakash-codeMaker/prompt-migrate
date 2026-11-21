@@ -188,6 +188,9 @@ def load_revision_graph(project_dir: Path) -> ForkedHistory:
         current = children.get(current.revision, [None])[0]
     if not trunk or trunk[-1].revision != fork_id:
         raise RevisionGraphError("Disconnected or cyclic migration history")
+    # A revision outside the trunk and both branches (e.g. a disconnected self-parent) must fail before rebase writes.
+    if len(trunk) + len(branches[0]) + len(branches[1]) != len(unsorted):
+        raise RevisionGraphError("Disconnected or cyclic migration history")
     return ForkedHistory(
         revisions=unsorted,
         trunk=tuple(trunk),

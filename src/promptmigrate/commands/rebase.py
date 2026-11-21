@@ -5,20 +5,17 @@ from __future__ import annotations
 import argparse
 import re
 import sqlite3
-from datetime import datetime, timezone
+import uuid
+from collections.abc import Iterable
 from pathlib import Path
 
-from .. import output, project, protocol, revisions, store
-from ..errors import MigrationConflictError, RevisionGraphError, SchemaError, StorageError
+from .. import output, project, revisions, store
+from ..errors import MigrationConflictError, SchemaError, StorageError
 from ..store import sqlite as sqlite_store
-
-_TARGET_HELP = "tip id of the branch to keep (a revision id; required when neither branch is applied)"
 
 
 def _new_id(taken: set[str]) -> str:
     """A fresh 12-hex revision id not already in history (the generator `revision` uses)."""
-    import uuid
-
     for _ in range(5):
         rid = uuid.uuid4().hex[:12]
         if rid not in taken:
@@ -55,7 +52,7 @@ def _write_revision_file(root: Path, rid: str, parent: str | None, message: str,
     return path
 
 
-def _touched_prompt_names(revisions_) -> set[str]:
+def _touched_prompt_names(revisions_: Iterable[revisions.Revision]) -> set[str]:
     """The set of prompt names a branch touches (in any `before` or `after`)."""
     names: set[str] = set()
     for r in revisions_:
@@ -91,9 +88,17 @@ def _applied_ids(project_dir: Path) -> set[str]:
 def rebase(project_dir: Path, onto: str | None = None) -> list[str]:
     """Repair one fork: keep the branch ending at `onto`, move the other onto it.
 
-    Returns the new ids of moved revisions, oldest first. Writes nothing on conflict.
+    Returns the new ids of moved revisions, oldest first. Writes nothing on conflict; a failure while
+    publishing, deleting or verifying restores the original files.
     """
     root = project.require_init(project_dir)
+    # One lock from the history read to the final verify, so a concurrent rebase sees the already-linear history.
+    with store._project_lock(project_dir):
+        return _rebase_locked(project_dir, root, onto)
+
+
+def _rebase_locked(project_dir: Path, root: Path, onto: str | None) -> list[str]:
+    """The body of `rebase`; the caller holds the project lock."""
     graph = revisions.load_revision_graph(project_dir)
 
     branch_one = graph.branch_one
@@ -143,6 +148,10 @@ def rebase(project_dir: Path, onto: str | None = None) -> list[str]:
             f"Both branches touch prompt(s): {quoted}"
         )
 
+    # Fail closed on a moved revision whose own `before` values never held, before replacing any snapshot.
+    for branch in (stay_branch, move_branch):
+        revisions.replay_revisions(list(graph.trunk) + list(branch))
+
     # Compute new ids and recompute `before` snapshots from the replayed new parent.
     # The moved branch is re-parented onto the stay branch tip, so the state to replay is
     # trunk + stay branch (root through the stay tip).
@@ -169,28 +178,25 @@ def rebase(project_dir: Path, onto: str | None = None) -> list[str]:
                 state[name] = change["after"]
         parent = new_rid
 
-    # All new files are written first; old files removed tip-first; then verified.
+    # All new files are written first; old files removed tip-first; then verified. Any failure puts the
+    # original bytes back and removes the replacements.
+    old_files = [(old.path, old.path.read_bytes()) for old in reversed(move_branch)]
     new_paths: list[Path] = []
-    old_paths: list[Path] = []
     try:
         for old, new_rid, new_changes, new_parent in planned:
             new_paths.append(_write_revision_file(
                 root, new_rid, new_parent, old.message, old.created_at, new_changes,
             ))
+        for path, _data in old_files:
+            path.unlink()
+        revisions.replay_revisions(revisions.load_revisions(project_dir))
     except BaseException:
         for path in new_paths:
             path.unlink(missing_ok=True)
+        for path, data in old_files:
+            if not path.exists():
+                path.write_bytes(data)
         raise
-
-    # Remove old files tip-first (newest moved revision first).
-    for old in reversed(move_branch):
-        old_paths.append(old.path)
-    for path in old_paths:
-        path.unlink()
-
-    # Verify the result loads as one linear chain and replays cleanly.
-    revisions.load_revisions(project_dir)
-    revisions.replay_revisions(revisions.load_revisions(project_dir))
 
     return [new_rid for _old, new_rid, _changes, _parent in planned]
 
@@ -199,8 +205,8 @@ def execute(args: argparse.Namespace) -> output.Result:
     """Run `rebase` and return its text and JSON result."""
     project_dir = Path(args.project)
     label = store.display_name(project_dir, args.env)
-    ids = rebase(project_dir, getattr(args, "onto", None))
-    data = {"onto": getattr(args, "onto", None), "revisions": ids}
+    ids = rebase(project_dir, args.onto)
+    data = {"onto": args.onto, "revisions": ids}
     text = f"Rebased {len(ids)} revision(s) in {label}: {', '.join(ids) or '(none)'}\n"
     return output.Result("rebase", data, text, label)
 
