@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Testing
+- **Concurrent `upgrade`/`downgrade` test** — one process runs `upgrade head` while another runs `downgrade -1` on the same environment; either serial order is accepted, a typed error is tolerated, and the ledger is a prefix of history with `prompts` equal to its replay (#31)
+
 ### Documentation
 - **ADR-030 `rebase`** — accepted the design for `promptmigrate rebase` (#15): re-parent an unapplied branch after a Git merge with new ids, written as v1, refusing applied revisions and conflicting prompts; docs only, `rebase` is not implemented
 - **README** — explain recovery from line-ending drift (#104)
