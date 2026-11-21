@@ -1,203 +1,92 @@
 # Changelog
 
-All notable changes to PromptMigrate. Before 1.0, CLI and file contracts may change; such changes are marked **Contract**.
+All notable changes to PromptMigrate are documented in this file.
 
-## Unreleased
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/). Before 1.0, CLI and file contracts may change; such changes are marked **Contract**.
 
-- Accepted ADR-030 for `promptmigrate rebase` (#15): re-parent an unapplied branch after a Git merge with new ids, written as v1, refusing applied revisions and conflicting prompts. Docs only; `rebase` is not implemented.
-- Added an append-only `events` table to each environment state DB (#14, ADR-029). `upgrade`, `downgrade` and `restamp` append one row per applied, reverted or re-stamped revision (command, revision id, checksum, UTC time; `restamp` also records the old checksum) in the same SQLite transaction as the ledger, so an event exists if and only if its ledger change committed. Triggers reject `UPDATE`, `DELETE` and an `INSERT` that reuses a `seq` (which `INSERT OR REPLACE` would otherwise use to rewrite history). Older state DBs gain the table on their first successful mutation; a rejected or no-op command writes nothing, and read commands do not need the table. Events hold no config content or secrets. An existing `events` table with a different shape (column names, types, NOT NULL or primary-key flags), a non-table object with that name, or an `events_no_*` trigger name already used on another table raises `StorageError`. There is no command to read events yet. The `apply.py` fault-injection suite covers the event writes, including the adoption of an older DB; `docs/CLI_SPEC.md`, `docs/MIGRATION_PROTOCOL.md`, `docs/TESTING_STRATEGY.md` and ADR-029 are updated.
-- Added a fault-injection suite for the `apply.py` transaction (#12): `tests/integration/test_apply_fault_injection.py` raises an exception or `sqlite3` error at every read, write and commit point of `upgrade` and `downgrade` (35 cases, plus 6 typed-error checks on the read points). After each fault the env's ledger and `prompts` rows equal their pre-fault values, `check` reports the old state, all connections are closed and the same command succeeds on retry. A recording run and an AST guard keep the list of points in step with `apply.migrate`. The suite found, and this change fixes, #93: the `prompts` read inside `apply.migrate` escaped as a raw `sqlite3.Error` while the same read in `_verify` raised `StorageError`. Both now go through one `_stored_state` helper and raise `StorageError("Corrupt environment state")` with the driver error as `__cause__`; the CLI exit code (5) and JSON code (`storage`) are unchanged. `docs/TESTING_STRATEGY.md` describes the suite.
-- Fixed lock and file-mode follow-ups parked from PRs 9 (`restamp`) and 10 (atomic revision writes) (#79): `restamp` checks that the env DB exists under the project lock, which is now re-entrant within a thread on POSIX as the Windows mutex already was (a nested `flock` deadlocked restamp on Linux and macOS); a Windows failure to create or acquire the project lock's mutex raises a typed `StorageError` whose single message names the Windows error code (`... mutex: Windows error <code>`, read before the mutex handle is closed) instead of a bare `OSError`; writing `environments.json` no longer reads or restores the process umask: a new manifest's temp file is opened with mode 0o666 so the OS applies the umask, and an existing manifest keeps its mode.
-- Added an integration test (`tests/integration/test_concurrent_upgrade.py`) for concurrent `upgrade head` runs on the same environment (#11). Two real processes run `upgrade head --env dev` against one project with two pending revisions, coordinated with multiprocessing events (no sleeps). Exactly one applies both revisions; the other either sees nothing to do or fails closed. The final `prompts` table equals replay of the applied ledger prefix, with no duplicate ledger rows. Passes on Windows (native), Linux and macOS CI.
-- The package-install smoke test now runs `promptmigrate validate` through the installed console script: text mode must exit 0 and print an `OK: ` line, and JSON mode must return the `promptmigrate.output/1` envelope with `data.revisions` equal to the round-trip revision, so an installed package that loses the command fails the smoke test (#87).
-- Added `promptmigrate validate [--strict] [--drafts-clean]`, a source-only check for CI (#10, ADR-028). It loads revision history, drafts, the environment manifest (only when `environments.json` exists) and the secret allowlist, and audits secrets as `check` does. It never resolves an environment and never reads, creates or modifies anything under `states/`. Tier-A errors exit 3. Warnings exit 0, except under `--strict` (exit 3, distinct warnings counted). `--drafts-clean` fails when drafts differ from head. Text output: `OK: <n> revisions (v0: a, v1: b), head <id|base>`; JSON `data`: `revisions`, `head`, `format_versions`, `drafts_clean`. README, CLI_SPEC (with a CI example), DECISIONS, TESTING_STRATEGY and HANDOFF are updated.
-- Added `StrictValidationError`, a `SchemaError` subclass (exit 3, JSON code `schema`), for the upcoming `validate --strict` (#10).
-- Added static type checking: mypy runs over `src/` in lenient mode (config in `pyproject.toml`), a CI `type-check` job covers Python 3.10/3.12/3.13, and the real type errors it found are fixed. The gate checks the Windows, Linux and macOS platforms from any host. `mypy` is a dev-only dependency, capped at one minor release (`>=2.4,<2.5`) so a new mypy cannot turn `main` red on its own; runtime stays stdlib-only. `type-check` is one of the jobs `ci-pass` requires (#20).
-- CI runs fewer jobs per PR (7 instead of 12, one macOS job instead of three), following pip, tox and flask. The `push` trigger is limited to `main`, so same-repository PR branches no longer run twice. `docker-test` and `package-smoke` are merged into `docker-all-in-one`; the smoke test still builds on the host from the full checkout and runs even when the suite fails. `native-test` runs Windows on Python 3.10 and 3.13 and macOS on 3.13 for every PR and `main` push, with a pip cache; `native-test-extended` runs the other three Windows/macOS legs weekly and on manual dispatch. A new `ci-pass` job is the one check branch protection requires. The merge gate in `AGENTS.md` and the CI descriptions in `docs/TESTING_STRATEGY.md`, `docs/HANDOFF.md` and `docs/ROADMAP.md` are updated.
-- Run the README quick-start commands as a cross-platform CLI smoke test against an empty temporary project (#21).
-- Restructured `AGENTS.md` after large open-source agent files (Sentry, Apache Airflow): it declares itself the source of truth, then runs Critical rules, Setup and commands, Repository structure, Architecture boundaries, Invariants, Coding and Testing standards, How to work, Commits and pull requests, Boundaries, Current status and References. No rule was dropped. It also opens with the rules that do the most damage when broken, adds a Working style section adapted from the Karpathy guidelines (`andrej-karpathy-skills`, MIT), and adds a Boundaries section listing what agents must ask about first and must never do. The guidelines live in `AGENTS.md` so every agent gets them; `CLAUDE.md` still only points there.
-- Added Programming Language :: Python :: 3.10, 3.12 and 3.13 classifiers to pyproject.toml to match the CI matrix (Python 3.10, 3.12, 3.13) and requires-python >=3.10.
-- Synced the roadmap with the Phase 1 issues: package-install smoke tests marked done (#13, PR #67), the `--version` baseline corrected, issue numbers added to open items, #21 and #79 listed, and RFC issue numbers added to OPEN_QUESTIONS. Refreshed the verified test baseline in AGENTS.md.
-- Package smoke import guard now verifies namespace package portions through `__path__` instead of crashing on their missing `__file__`. CI cancels superseded runs on non-`main` refs through a workflow-level concurrency group, so matrix legs never cancel each other; every `main` run gets its own group and always runs.
-- Synced package smoke checks with the latest README, CLI version flag and advisory review updates, preserving the host-side smoke job.
-- Package smoke checks build into a fresh temporary directory, excluding stale local artifacts; roadmap completion remains pending CI for the synchronized revision.
-- Added CI smoke tests that install wheel and sdist artifacts into separate virtual environments outside the checkout, verify import origins, and run the migration CLI through a complete draft round trip.
+---
 
-- Rewrote `README.md` for open-source contributors: badges, a Mermaid flow diagram, links to the roadmap milestones, Contributing and Community sections, and a new minimal wordmark banner (`assets/readme-banner.svg`). Added `assets/social-preview.svg` and a rendered 1280×640 `assets/social-preview.png` for the GitHub social preview. Removed the stale claim that Python 3.11 is covered by a local Windows merge gate.
-- Fixed the README's CI example: it now installs PromptMigrate from its Git repository instead of `pip install -e .` on the user's project, and replays revisions into a throwaway `dev` environment before `check --require-head`, which failed on a fresh checkout because `states/` is gitignored.
-- Added an advisory AI review of pull requests (`.github/workflows/ocr-review.yml`) using Open CodeReview v1.13.10, pinned by commit, with Nemotron 3 Ultra (`nvidia/nemotron-3-ultra-550b-a55b`) on NVIDIA's free NIM endpoint by default; the `OCR_LLM_MODEL` repository variable overrides it. If that review fails, it retries once with Nemotron 3.5 Super VL (`nvidia/nemotron-3.5-super-vl-120b-a12b`, overridable with `OCR_LLM_FALLBACK_MODEL`). Both were the most reliable models on the free endpoint in the community NIMStats benchmark (about 97% and 98% of requests answered). The earlier defaults were dropped: DeepSeek V4.1 Flash answered under 20% of requests, and MiniMax M3.1 Flash failed with 503s. LLM requests time out after 120 seconds, and each review step has its own time limit (12 and 15 minutes), so a stalled primary model no longer runs the job into its 30-minute limit before the fallback finishes. It only posts comments and is not part of the merge gate.
-- Updated the CodeRabbit workflow rule in `.coderabbit.yaml`: it no longer forbids host-side CI jobs, matching the native Windows/macOS test jobs and host-side package-install smoke tests (fixes #73).
-- Added Commands, Code style, and Issues and pull requests sections to `AGENTS.md`. `CLAUDE.md`, `CODEX.md`, `GEMINI.md`, `HERMES.md` and `.github/copilot-instructions.md` now only point to `AGENTS.md`; `CLAUDE.md` and `GEMINI.md` import it with `@AGENTS.md`.
-- Replaced the local-Windows merge gate in `AGENTS.md` with a CI-based one: every CI job green on all OS/Python combinations, branch up to date with `main`, resolved review threads, and real test output in the PR. Changes reach `main` only through a reviewed pull request. The PR template now asks for `Closes #N` and green CI.
-- Added `uv.lock`, pinning the dev dependencies for `uv run --extra dev`. The runtime stays stdlib-only; `pip install -e ".[dev]"` is unchanged.
-- Fixed the `AGENTS.md` link in `.github/copilot-instructions.md`, which resolved to the missing `.github/AGENTS.md`.
-- The merge gate no longer requires a GitHub approval while the project has a single maintainer; it returns to one approval when a second maintainer joins.
-- Added `--version` CLI flag to print installed package version (`promptmigrate <version>`) and exit 0 (fixes #16).
-- Clarified that applied v0 revisions are checked by raw bytes, while v1 revisions allow formatting-only changes and are checked by canonical parsed content; aligned the integrity test guidance.
-- Added an SVG banner to the README showing PromptMigrate's ordered revision flow and verified local environment state.
-- Corrected README and handoff documentation to include the shipped `plan` command and native Windows/macOS CI coverage; refreshed the documented test baseline and suite location. Brought `PRD.md`, `ROADMAP.md` and `LOW_LEVEL_DESIGN.md` up to date with the shipped `plan`, exit codes, JSON output, typed errors and strict loader. Moved all agent rules and the architecture overview from `CLAUDE.md` into `AGENTS.md`.
-- Compacted `AGENTS.md` without dropping rules, and added a "Before every commit" rule: each commit updates `CHANGELOG.md` and `docs/ROADMAP.md`.
+## [Unreleased]
 
-### Phase 1 cycle 2 — atomic revision writes and collision handling (PR 10)
+### Documentation
+- **ADR-030 `rebase`** — accepted the design for `promptmigrate rebase` (#15): re-parent an unapplied branch after a Git merge with new ids, written as v1, refusing applied revisions and conflicting prompts; docs only, `rebase` is not implemented
+- **README** — explain recovery from line-ending drift (#104)
 
-- Added `project.write_new_file`: writes to a hidden `.tmp` file in the target directory, fsyncs it, then publishes
-  with a hard link that never overwrites an existing file; where hard links are supported, nothing partial is left
-  on failure. Filesystems without hard links fall back to an exclusive create (still no-clobber, but a crash
-  mid-write can leave a partial file).
-- `revision` now runs under the project lock and publishes through `write_new_file`: it never overwrites an existing
-  file ("Revision file already exists: <name>", exit 5) and regenerates a revision id that already exists in history
-  (at most 5 attempts). On a reported failure it leaves no partial `.json` or `.tmp`; only a crash during the
-  no-hard-link fallback can leave a partial `.json`.
-- Recorded the post-PR 10 test baseline (883 passed, 19 skipped).
-- Clarified in `CLI_SPEC.md` that the no-hard-link fallback is not crash-atomic.
-- Applied the same qualifier in `ROADMAP.md` and refreshed its status date and cycle-2 status line.
-- `write_new_file` no longer reads the process umask, which meant briefly setting it to 0 for every thread. The temp
-  file and the fallback file are created with `O_EXCL` and mode `0o666`, so the OS applies the umask at creation. A
-  temp name that already exists is skipped and left untouched.
+- **Roadmap** — records that `promptmigrate-cli` 0.1.0 is published on PyPI (#55); the documented upgrade policy (#56) remains open
+- **README badge and install** — adds a PyPI version badge, a quick `pip install promptmigrate-cli` line near the top, and a CI example that installs the published package instead of the Git repository
 
-### Phase 1 cycle 2 — line-ending recovery for v0 (`restamp`, PR 9)
+---
 
-- Added `promptmigrate restamp --env <env>` (ADR-027): an explicit, all-or-nothing command that re-stamps the ledger
-  checksum of applied v0 revisions whose file changed only in line endings (CRLF ↔ LF). Any other mismatch, a v1 row,
-  or drift fails with the normal error and writes nothing; no state database or manifest is created. There is no
-  audit record of a re-stamp yet (cycle 3).
-- `check`, `current`, `get`, `plan`, `upgrade` and `downgrade` still fail a v0 revision whose file changed only in
-  line endings (exit 4), but the message now says so and names `promptmigrate restamp --env <env>`.
-- `restamp` and the line-ending hint now apply only to UTF-8 v0 revision files; a UTF-16/32 file whose bytes happen
-  to match after CR/LF replacement is no longer accepted.
-- Corrected the docs: `restamp` is not among the commands that reject an eligible line-ending-only row with exit 4 —
-  it re-stamps such a row and succeeds. The failing set is `check`, `current`, `get`, `plan`, `upgrade` and `downgrade`.
-- Recorded the post-PR 9 test baseline (854 passed, 18 skipped) and added `restamp` to the command lists.
+## [0.1.0] - 2026-11-19
 
-### Phase 1 cycle 2 — protocol v1 and canonical revision hashes (PR 8)
+### Added
 
-- **Contract:** Revision files with `"format_version": 1` are read as protocol v1 (ADR-026): exactly six top-level keys, and a
-  `v1:`-tagged SHA-256 of the canonical parsed object as checksum, so line endings, whitespace and key order no
-  longer count for them. Any other `format_version` value, or an unknown key in a v1 file, is a `SchemaError`
-  (exit 3). Files without `format_version` stay v0, unchanged. A hand-written revision that already carried a
-  `format_version` key used to load as v0 and now follows these rules.
-- Added v1 integrity tests: re-saved v1 revisions still verify, value edits fail closed, mixed v0 → v1 histories
-  upgrade, check and downgrade, an I16 property test over random re-serializations, and plan==apply over mixed
-  histories.
-- **Contract:** `revision` now writes protocol v1 files (`format_version: 1`) with LF line endings on every OS,
-  which fixes the CRLF false-tamper risk for new revisions (the PR 7 xfail now passes). PromptMigrate versions without
-  v1 support still load these files but treat them as v0 and store raw-byte checksums, so use one version per
-  environment: mixing them fails closed with "Migration file was modified after apply".
-- Recorded the post-PR 8 test baseline (802 passed, 18 skipped) and marked open questions 1 and 4 answered.
-- Unpaired surrogate escapes in a v1 revision are now a SchemaError (exit 3) instead of a traceback; refreshed the README example and v1 design notes.
+- **PyPI release workflow** — `.github/workflows/release.yml` publishes to PyPI with trusted publishing (OIDC, no stored token) when a `v*` tag is pushed; it checks the tag against the `pyproject.toml` version, builds, runs the package smoke test, then publishes from the `pypi` environment (#55)
+- **`promptmigrate-cli` distribution name** — the PyPI distribution is renamed because `promptmigrate` is taken; the import package and the `promptmigrate` command are unchanged, and `--version` reads the new name
+- **`validate` command** — `promptmigrate validate [--strict] [--drafts-clean]` is a source-only check for CI: it audits history, drafts, the environment manifest and the allowlist, and never touches `states/`; Tier-A errors exit 3, warnings exit 0 (3 under `--strict`) (#10, ADR-028). **Contract:** new command
+- **`restamp` command** — `promptmigrate restamp --env <env>` re-stamps the ledger checksum of applied v0 revisions whose file changed only in line endings; all-or-nothing, UTF-8 files only, and `check`, `current`, `get`, `plan`, `upgrade` and `downgrade` now name it when they fail such a row (exit 4) (ADR-027). **Contract:** new command
+- **`plan` command** — `promptmigrate plan [--env E] [--target head|-1|base|<revision>]` is a read-only preview of what `upgrade` or `downgrade` would do; target resolution is shared with both commands (ADR-023). **Contract:** new command
+- **`--output json`** — **Contract:** global `--output {text,json}` prints one `promptmigrate.output/1` envelope for every command, success or handled error, with warnings listed in it; text output is unchanged (ADR-024)
+- **`--version`** — prints the installed package version and exits 0 (#16)
+- **Declared environments** — **Contract:** `init` declares `dev` and `staging` in `.promptmigrate/environments.json`; `env add <name>` adds a declaration atomically and `env list` shows each name and whether its SQLite file exists; names resolve case-insensitively, and legacy projects are adopted on the first mutation with one warning
+- **Protocol v1** — **Contract:** revision files with `"format_version": 1` use a `v1:`-tagged SHA-256 of the canonical parsed object, so line endings, whitespace and key order no longer count; `revision` now writes v1 with LF on every OS. Any other `format_version`, or an unknown key in a v1 file, is a `SchemaError` (ADR-026). PromptMigrate versions without v1 support treat these files as v0, so use one version per environment; mixing them fails closed with "Migration file was modified after apply"
+- **Secret safeguard** — **Contract:** `revision` refuses secret-like values in new `after` values or messages (`SecretDetectedError`, naming path and rule only); `diff`, `get` and `history` redact flagged strings as `<redacted:RULE>`; `check` warns about secrets in history; false positives go in the fingerprinted `.promptmigrate/secret-allowlist.json`. Detection is heuristic
+- **Append-only `events` table** — `upgrade`, `downgrade` and `restamp` append one event per applied, reverted or re-stamped revision in the same SQLite transaction as the ledger; triggers reject `UPDATE`, `DELETE` and `seq` reuse; older state DBs gain the table on their first mutation; there is no command to read events yet (#14, ADR-029)
+- **Atomic revision writes** — `project.write_new_file` writes a hidden temp file, fsyncs it and publishes it with a hard link that never overwrites; filesystems without hard links fall back to an exclusive create that is no-clobber but not crash-atomic
+- **Static type checking** — mypy runs over `src/` in lenient mode in a `type-check` CI job on Python 3.10, 3.12 and 3.13; `mypy` is a dev-only dependency capped at `>=2.4,<2.5` (#20)
+- **Advisory AI review** — a pull request review workflow using Open CodeReview, pinned by commit, with a primary and a fallback model on NVIDIA's free endpoint (override with `OCR_LLM_MODEL` and `OCR_LLM_FALLBACK_MODEL`); it only comments and is not part of the merge gate
+- **`uv.lock`** — pins the dev dependencies for `uv run --extra dev`; the runtime stays stdlib-only
+- **`dev` extra** — `pytest`, `hypothesis` and `pytest-cov`; pytest now finds `src/` without `PYTHONPATH`
+- **Python classifiers** — 3.10, 3.12 and 3.13 in `pyproject.toml`, matching the CI matrix
+- **`examples/multi-agent-basic/`** — two agent drafts and a cross-platform `run.py` that walks the full lifecycle
+- **Community files** — `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), a root `SECURITY.md` (private reporting through GitHub), and issue and pull request templates
 
-### Phase 1 cycle 2 — freeze v0 artifact semantics (PR 7)
+### Changed
 
-- Recorded ADR-025: a revision file without `format_version` is v0, its meaning is frozen, and its checksum stays
-  SHA-256 of the raw bytes. Added byte-exact v0 and CRLF fixtures with pinned checksums and characterization tests.
-  The CRLF false-tamper risk is now documented in `MIGRATION_PROTOCOL.md` and pinned as a strict xfail.
-  No code, CLI, file-format or checksum change.
-- Recorded the post-PR 7 test baseline in TESTING_STRATEGY.md and HANDOFF.md, and clarified the v0 line-ending risk wording.
+- **Package author** — the `pyproject.toml` author is now Himanshu Kumar instead of "PromptMigrate contributors"
+- **Exit codes** — **Contract:** handled errors exit by type: 3 for schema and source errors, 4 for drift, integrity and conflicts, 5 for storage, `sqlite3` and `OSError` failures; other handled errors still exit 1 and usage errors 2. Scripts testing for exactly 1 must change
+- **Strict parsing** — **Contract:** duplicate keys, `NaN`/`Infinity`, number literals that overflow to infinity, JSON nested too deep, and files resolving outside `.promptmigrate/` (including a symlinked `versions/` or `drafts/`) are rejected everywhere (tier A)
+- **Canonical equality** — **Contract:** configs compare by canonical JSON, so `1`, `1.0` and `true` are distinct; a `1` → `true` draft edit produces a revision, bool/int drift in an env DB is detected, and a hand-edited revision that relied on the old conflation fails with `unexpected current value`
+- **Hygiene and limits** — **Contract:** drafts and new revisions are rejected for wrong reserved-field types, config depth above 64, drafts over 1 MiB or symlinked, draft names equal case-insensitively, and revision files over 16 MiB (tier B); existing revision files that break these still load with a stderr warning
+- **Typed errors** — handled failures raise `MigrationError` subclasses (`InitializationError`, `SchemaError`, `RevisionGraphError`, `MigrationConflictError`, `DriftError`, `IntegrityError`, `TargetError`, `PendingRevisionsError`), plus `StrictValidationError` for `validate --strict`; an OS error reading a revision file reports `Unreadable migration <file>: …`
+- **Read-only state reads** — **Contract:** `check`, `current` and `get` use read-only SQLite connections; missing state is the empty base and reads never create or repair files; incomplete or corrupt DBs, WAL-mode DBs and state symlinks fail as storage errors; production-like environment names warn that state stays local SQLite
+- **`revision` collision handling** — runs under the project lock, never overwrites an existing file (`Revision file already exists: <name>`, exit 5), regenerates a colliding id up to 5 times, and leaves no partial `.json` or `.tmp` on a reported failure
+- **Package layout** — `protocol/` and `store/` are packages, `core.py` is a re-export facade, each CLI verb lives in `commands/<verb>.py`, and tests are grouped into `unit`, `integration`, `contract` and `security`; no CLI, file-format or checksum change, and tests now patch the defining module (ADR-022)
+- **CI** — runs 7 jobs per PR instead of 12: `docker-all-in-one` merges the Docker and smoke jobs, `native-test` covers Windows on 3.10 and 3.13 and macOS on 3.13, the other legs run weekly, and `ci-pass` is the single required check
+- **Merge gate** — requires green CI on every OS/Python job, a branch up to date with `main`, resolved review threads and real test output in the PR; it needs no approval while there is one maintainer
 
-### Phase 1 cycle 1 — exit codes and `--output json` (PR 6)
+### Fixed
 
-- **Contract:** handled errors now exit by type: 3 for schema/source errors, 4 for drift, integrity and conflicts, 5
-  for storage, `sqlite3` and `OSError` failures. Other handled errors (uninitialized project, undeclared environment,
-  unknown target, pending revisions) still exit 1. Usage errors stay 2. Scripts testing for exactly 1 must change.
-- Added global `--output {text,json}` (default `text`). JSON prints one `promptmigrate.output/1` envelope on stdout
-  for every command, success or handled error; PromptMigrate warnings are listed in it instead of printed to stderr.
-  Default text output is unchanged. See `docs/CLI_SPEC.md` and ADR-024.
-- New `promptmigrate.output`; every command, including `plan`, exposes `execute(args)` returning an `output.Result`.
+- **SQLite connection leaks** — every command now closes its connection; leaked connections kept `states/<env>.sqlite3` locked and 5 of 7 tests errored on Windows
+- **Raw `sqlite3.Error` in `apply.migrate`** — the `prompts` read now raises `StorageError("Corrupt environment state")` like `_verify` (exit 5 unchanged) (#93)
+- **Lock and file-mode follow-ups** — `restamp` checks the env DB under the re-entrant project lock (a nested `flock` deadlocked on Linux and macOS), a Windows mutex failure raises a typed `StorageError`, and writing files no longer reads or restores the process umask (#79)
+- **CRLF false tamper for new revisions** — fixed by writing v1 revisions with LF
+- **Unpaired surrogates in v1 revisions** — now a `SchemaError` (exit 3) instead of a traceback
+- **README CI example** — installs PromptMigrate from its Git repository and replays revisions into a throwaway `dev` environment before `check --require-head`
+- **Package smoke import guard** — verifies namespace package portions through `__path__` instead of crashing on a missing `__file__`
+- **CI cancellation** — superseded runs on non-`main` refs are cancelled through a workflow-level group; every `main` run always runs
+- **Copilot instructions link** — pointed to the missing `.github/AGENTS.md`
 
-### Phase 1 cycle 1 — read-only `plan`
+### Testing
 
-- Added `promptmigrate plan [--env E] [--target head|-1|base|<revision>]`: a read-only preview of what `upgrade` or
-  `downgrade` would do. It verifies the environment like `check`, writes nothing and infers the direction from the
-  target. **Contract:** new command; no change to existing commands, output or error messages.
-- Target resolution moved into the pure `promptmigrate.plan` module, shared by `upgrade`, `downgrade` and `plan`.
-  A hypothesis property test checks that `plan` matches what the commands apply (ADR-023).
+- **Fault-injection suite for `apply.py`** — raises an exception or `sqlite3` error at every read, write and commit point of `upgrade` and `downgrade` (35 cases); the ledger and `prompts` rows stay unchanged and a retry succeeds (#12)
+- **Concurrent `upgrade` test** — two real processes run `upgrade head` on one environment; exactly one applies both revisions and the other sees nothing to do or fails closed (#11)
+- **Package-install smoke tests** — build wheel and sdist into a fresh temporary directory, install them into separate venvs outside the checkout, verify import origins, run a full draft round trip, and run `validate` through the console script (#13, #87)
+- **README quick-start smoke test** — runs the README commands against an empty temporary project on every OS (#21)
+- **Characterization tests and legacy fixtures** — pin graph errors, target rules, CLI text output and exit codes, with strict xfails naming their fixing PR
+- **v1 integrity tests** — re-saved v1 revisions still verify, value edits fail closed, mixed v0 → v1 histories work, plus a property test over random re-serializations
+- **Example test** — `tests/contract/test_examples.py` runs `examples/multi-agent-basic` on every test run
+- **Cross-OS CI** — the suite runs on Ubuntu, Windows and macOS with pytest
 
-### Community files
+### Documentation
 
-- Added `examples/multi-agent-basic/`: two agent drafts and a cross-platform `run.py` that walks the full lifecycle.
-  `tests/contract/test_examples.py` runs it on every test run.
-- Added `CONTRIBUTING.md` (setup, rules, a "where does X live" table), `CODE_OF_CONDUCT.md` (Contributor
-  Covenant 2.1), a root `SECURITY.md` (private reporting through GitHub), and issue and pull request templates.
-- CodeRabbit now reviews draft pull requests (`reviews.auto_review.drafts: true` in `.coderabbit.yaml`).
-- `docs/ROADMAP.md` marks the six completed Phase 1 cycle 1 items. `plan`, exit codes 0–5 and `--output json`
-  remain open.
+- **Release guide** — `docs/RELEASING.md` is a maintainer guide for publishing `promptmigrate-cli` to PyPI: how the tag-triggered workflow runs, the one-time PyPI and `pypi` environment setup (tag rule `v*`), the pre-tag checklist, tagging and verification, and recovery when a release fails; `CONTRIBUTING.md` and `docs/HANDOFF.md` link to it
+- **README** — rewritten for contributors with badges, a Mermaid flow diagram, an SVG banner and a social preview image; the install section now points at `promptmigrate-cli`; the stale claim that a local Windows run gates merges is removed
+- **Integrity guidance** — applied v0 revisions are checked by raw bytes, v1 revisions by canonical parsed content; the v0 CRLF risk is documented, and ADR-025 freezes v0 semantics
+- **Design docs** — `ROADMAP.md`, `PRD.md`, `LOW_LEVEL_DESIGN.md`, `CLI_SPEC.md` and `HANDOFF.md` follow the shipped commands, exit codes, JSON output and strict loader; the verified test baseline is refreshed
+- **Changelog format** — this file follows Keep a Changelog, and `AGENTS.md` names the format
 
-### Phase 1 cycle 1 — package layout refactor
+### Internal
 
-- `promptmigrate.protocol` is now a package: `limits`, `jsonloader`, `equality` and `rules`. It re-exports every
-  previous name. Limits are read at call time from `protocol.limits`, so tests patch them there.
-- `promptmigrate.store` is now a package: `environments`, `lock` and `sqlite`. It re-exports every previous name.
-  `root_dir`/`require_init` live in the new `promptmigrate.project`. Environment-name syntax moved to
-  `protocol.rules.validate_environment_name`.
-- `core.py` is now a re-export facade (ADR-022). Logic lives in `project`, `revisions`, `draftdiff`, `apply` and
-  one `commands.<verb>` module per CLI verb; `cli.py` only parses and dispatches. `promptmigrate.__all__` exposes the
-  same public names as `core`. Monkeypatching `core` or `cli` no longer changes behaviour; patch the defining module.
-- Tests are grouped by suite in `tests/{unit,integration,contract,security}/`. The original `test_core.py` stays at
-  the root. Helpers that one test module imported from another moved to `tests/pmtest.py`.
-- No CLI, file-format or checksum change: CLI output is byte-identical to the previous release.
-
-### Phase 1 cycle 1 — PR 4: declared environments and read-only state reads
-
-- **Contract:** `init` declares `dev` and `staging` in `.promptmigrate/environments.json`. `env add <name>` adds a declaration atomically; `env list` reports each declared name and whether its local SQLite file exists.
-- **Contract:** environment names are resolved case-insensitively using canonical manifest spelling, including CLI status labels. Undeclared names fail before DB access. Legacy projects without a manifest are inferred in memory as `dev`, `staging` and every validly named `states/*.sqlite3` stem (stems no release could have created are ignored); the first successful `upgrade`, `downgrade` or `env add` persists that manifest and prints one adoption warning. A rejected command writes no manifest.
-- **Contract:** `check`, `current`, and `get` use read-only SQLite connections; missing state is the empty base state. Reads never create or repair database files. Existing incomplete/corrupt DBs, WAL-mode DBs, and state symlinks fail as storage errors.
-- Production-like environment names warn that their state remains local SQLite. No provider deployment or production activation is added.
-
-### Phase 1 cycle 1 — PR 3b: secret safeguard
-
-- **Contract:** `revision` refuses to write a secret-like value in any new `after` value or in its message. It raises
-  `SecretDetectedError` (a `SchemaError`) listing name, JSON path and rule only, and writes no file. A value copied
-  from history into `before` does not block; it prints `SecretInHistoryWarning`, because it is already committed and
-  the credential must be rotated.
-- **Contract:** `diff` and `get` replace each flagged string with `<redacted:RULE>` and print one
-  `SecretRedactedWarning`. Stored data and revision files are unchanged. Redacted output must not be used as a config
-  source.
-- `check` warns once per revision, name, path and rule about secret-like values in history (including commit
-  messages), and about allowlist entries that matched nothing. Warnings do not change the exit code.
-- `history` replaces a flagged commit message with `<redacted:RULE>` and prints one `SecretRedactedWarning`.
-- False positives go in `.promptmigrate/secret-allowlist.json` (Git-tracked, strictly parsed). An entry applies only
-  when its name, path, rule and the SHA-256 fingerprint of the exact value all match. A commit message is allowlisted
-  with `"name": "(message)", "path": "/message"`. Allowlist entries must be unique by (name, path, rule,
-  fingerprint); a duplicate is rejected.
-- Detection is heuristic: it can miss secrets, and it does nothing for secrets already in Git history.
-- New module `promptmigrate.secretscan`; new `core` functions `load_allowlist`, `redacted_diff`, `redacted_config`,
-  `redacted_history` and `audit_secrets`. `get_config` and `draft_diff` still return unredacted data.
-
-### Phase 1 cycle 1 — PR 3: strict parsing, compatibility tiers, canonical equality
-
-- **Contract:** drafts and revision files are parsed strictly. Duplicate keys, `NaN`/`Infinity`/`-Infinity`, number
-  literals that overflow to infinity (such as `1e400`), JSON nested too deep to parse, and files that resolve outside
-  `.promptmigrate/` are rejected everywhere (tier A). This also applies when `versions/` or `drafts/` is itself a
-  symlink pointing outside `.promptmigrate/`: every file in it is rejected.
-- **Contract:** configs compare by canonical JSON, so `1`, `1.0` and `true` are distinct. A `1` → `true` draft edit
-  now produces a revision, and bool/int drift in an env DB is detected. A revision hand-edited to rely on the old
-  conflation now fails with `unexpected current value`.
-- **Contract:** new hygiene and limit rules (tier B) reject drafts and newly generated revisions: reserved-field types
-  (`model` string, `parameters` object, `tools` list, `response_schema` object or `null`), config depth above 64,
-  drafts over 1 MiB or symlinked, draft names equal case-insensitively, and revision files over 16 MiB (checked before
-  writing). Existing revision files that break them still load, and the CLI prints
-  `Warning: revision <id>: <rule> (accepted for compatibility; create a new revision to fix)` on stderr.
-- Errors are typed (`InitializationError`, `SchemaError`, `RevisionGraphError`, `MigrationConflictError`,
-  `DriftError`, `IntegrityError`, `TargetError`, `PendingRevisionsError`), all subclasses of `MigrationError`.
-  Messages and exit code 1 are unchanged until PR 6, except that an OS error while reading a revision file is now
-  reported as `Unreadable migration <file>: …`.
-- New modules `promptmigrate.errors` and `promptmigrate.protocol`; `promptmigrate.core` keeps every existing name.
-- Tests: the three PR 3 strict xfails now pass; added error-type, strict-parsing, canonical-equality, new-content,
-  legacy-warning and CLI-warning suites, plus `tests/fixtures/legacy_breaking/hand_edited_bool_int`.
-
-### Phase 1 cycle 1 — PR 2: characterization tests and legacy fixtures
-
-- Tests only; no behaviour change.
-- Pinned: revision-graph errors, upgrade/downgrade target rules, CLI text output and exit codes, and the README
-  five-minute example as a smoke test.
-- Pinned as strict xfails, each naming its fixing PR: undeclared env reports OK and read commands create files (PR 4);
-  `1`/`true` equality, duplicate JSON keys and `NaN` (PR 3).
-- Added: legacy compatibility fixtures under `tests/fixtures/legacy/`, which must stay usable for the whole cycle.
-
-### Phase 1 cycle 1 — PR 1: connection lifecycle and cross-OS CI
-
-- Fixed: every command closes its SQLite connection. Leaked connections kept `states/<env>.sqlite3` locked, so on
-  Windows 5 of 7 tests errored during cleanup.
-- Test fix: `test_state_drift_detected` closes the SQLite connection it opens itself (assertions unchanged).
-- Added: `dev` extra (`pytest`, `hypothesis`, `pytest-cov`). pytest now finds `src/` without `PYTHONPATH`.
-- CI: Ubuntu, Windows and macOS × Python 3.10, 3.12, 3.13, run with pytest.
+- **`AGENTS.md`** — restructured as the single source of truth for AI agent rules: critical rules, commands, code style, issue and PR rules, Working style, Boundaries and a "Before every commit" rule; `CLAUDE.md`, `CODEX.md`, `GEMINI.md`, `HERMES.md` and `.github/copilot-instructions.md` only point to it
+- **CodeRabbit configuration** — reviews draft pull requests, and its workflow rule no longer forbids host-side CI jobs (#73)

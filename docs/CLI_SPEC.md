@@ -2,7 +2,7 @@
 
 ## UX goals
 
-Familiar to Alembic users, transparent in CI, safe by default. Commands distinguish **source draft changes** from **environment state**. All examples below assume the command is installed via `python -m pip install -e .` from starter or future PyPI package.
+Familiar to Alembic users, transparent in CI, safe by default. Commands distinguish **source draft changes** from **environment state**. All examples below assume the command is installed via `python -m pip install promptmigrate-cli` from PyPI or `python -m pip install -e .` from a clone.
 
 ## Implemented in current prototype
 

@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/himanshu231204/prompt-migrate/actions/workflows/ci.yml"><img src="https://github.com/himanshu231204/prompt-migrate/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" /></a>
+  <a href="https://pypi.org/project/promptmigrate-cli/"><img src="https://img.shields.io/pypi/v/promptmigrate-cli?label=PyPI" alt="PyPI version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" /></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-3776ab.svg?logo=python&logoColor=white" alt="Python 3.10+" />
   <img src="https://img.shields.io/badge/runtime_deps-0_(stdlib_only)-2ea44f.svg" alt="Zero runtime dependencies" />
@@ -13,6 +14,16 @@
 # PromptMigrate
 
 **Alembic-style migrations for LLM prompts and AI agent configuration.** Keep prompts and agent configs as Git-tracked JSON, generate ordered, reviewable revisions, apply them to environments, roll them back, and fail CI when an environment drifts from history.
+
+```bash
+python -m pip install promptmigrate-cli
+```
+
+The PyPI package is `promptmigrate-cli`; the command and the import are both `promptmigrate`. See [Install](#install) for details.
+
+<p align="center">
+  <img src="assets/demo.gif" alt="Terminal demo: init, revision, upgrade, history, downgrade, then check failing with exit code 4 after dev is changed by hand" width="100%" />
+</p>
 
 > [!NOTE]
 > PromptMigrate is a **v0.1 local prototype**. Environments are local SQLite files, and nothing is deployed to Langfuse, OpenAI, Azure AI Foundry or any other runtime. See [what is and isn't guaranteed](#safety-and-integrity).
@@ -31,7 +42,14 @@ It's designed to sit alongside prompt registries, not replace them.
 
 ## Install
 
-Python 3.10 or newer. PromptMigrate is not on PyPI yet ([#55](https://github.com/himanshu231204/prompt-migrate/issues/55)), so install from a clone:
+Python 3.10 or newer. The PyPI distribution is named `promptmigrate-cli` (the name `promptmigrate` was already taken); the command and the import are both `promptmigrate`:
+
+```bash
+python -m pip install promptmigrate-cli
+promptmigrate --version
+```
+
+To work on PromptMigrate itself, install from a clone instead:
 
 ```bash
 git clone https://github.com/himanshu231204/prompt-migrate.git
@@ -127,6 +145,25 @@ flowchart LR
 | `get assistant --env dev` | Read a config from a local environment |
 | `env add qa` / `env list` | Declare and list local environments |
 
+### Recovering from line-ending drift
+
+If `check` exits with code `4` and reports that a migration file was modified after apply because of line endings only, this may happen when a v0 revision was created and applied on Windows before Git normalized its line endings.
+
+When the error explicitly says `line endings only`, run `promptmigrate restamp --env <env>`, replacing `<env>` with the affected environment name. For example, for the `dev` environment:
+
+```bash
+promptmigrate restamp --env dev
+```
+
+Example successful output (the revision ID will differ):
+
+```text
+Restamped 1 revision(s) in dev: <revision-id>
+```
+
+`restamp` accepts only line-ending-only changes to applied v0 revisions. It does not repair other file modifications or general state drift.
+
+
 Global flags: `--project <dir>` targets another project directory, and `--output json` prints machine-readable results. Exit codes are documented in [`docs/CLI_SPEC.md`](docs/CLI_SPEC.md).
 
 ## Project layout
@@ -145,10 +182,10 @@ project/
 
 ## Use in CI
 
-In your project's workflow, install PromptMigrate from its repository, then replay every revision into a throwaway environment and verify it:
+In your project's workflow, install PromptMigrate from PyPI, then replay every revision into a throwaway environment and verify it:
 
 ```yaml
-- run: python -m pip install "git+https://github.com/himanshu231204/prompt-migrate.git"
+- run: python -m pip install --upgrade promptmigrate-cli
 - run: promptmigrate validate --strict --drafts-clean
 - run: promptmigrate upgrade head --env dev
 - run: promptmigrate check --env dev --require-head

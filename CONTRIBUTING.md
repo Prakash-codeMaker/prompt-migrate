@@ -39,7 +39,8 @@ The rules are in [`AGENTS.md`](AGENTS.md); they apply to human and AI contributo
 - **Test first.** Write the failing test, watch it fail for the right reason, make it pass, then run the *whole*
   suite. A known but unfixed bug is pinned as `@pytest.mark.xfail(strict=True)` with a reason that names the fix.
 - **No behaviour change without docs.** Update `docs/CLI_SPEC.md`, `docs/MIGRATION_PROTOCOL.md`, `docs/DECISIONS.md`
-  and `CHANGELOG.md` in the same pull request.
+  and `CHANGELOG.md` in the same pull request. Changelog entries follow Keep a Changelog: one line under
+  `## [Unreleased]`, in the matching group, as `- **Name** — description (#N)`.
 - **Never change the revision file format or checksum semantics** without an explicit format version.
 - **No secrets in revisions, logs or fixtures.** Tests build token-shaped values at runtime from fragments, e.g.
   `"sk-" + "0" * 24`. Never commit a token-shaped literal.
@@ -80,6 +81,10 @@ and Python version you ran it on. Linux and macOS behaviour is only claimed once
 An automated Open CodeReview bot may comment on your pull request. Its comments are advisory: it is not part of the
 merge gate, and a maintainer decides which findings need a change. Maintainers can re-run it by commenting
 `/open-code-review`.
+
+## Releases
+
+Maintainers publish to PyPI by following [`docs/RELEASING.md`](docs/RELEASING.md).
 
 ## Reporting problems
 

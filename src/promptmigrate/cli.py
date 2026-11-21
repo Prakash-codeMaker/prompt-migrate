@@ -21,7 +21,7 @@ COMMANDS = {
 def _get_version() -> str:
     """Read package version via importlib.metadata with fallback to static __version__."""
     try:
-        return importlib.metadata.version("promptmigrate")
+        return importlib.metadata.version("promptmigrate-cli")
     except importlib.metadata.PackageNotFoundError:
         return __version__
 
