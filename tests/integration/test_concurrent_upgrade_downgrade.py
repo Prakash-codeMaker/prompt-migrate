@@ -1,7 +1,9 @@
 """Concurrent `upgrade head` and `downgrade -1` on the same environment (#31).
 
 One real process upgrades while another downgrades, starting from r1 applied and r2 pending. The project lock
-serializes them, so either order is valid; a typed `MigrationError` from one side is tolerated as fail-closed.
+serializes them, so either order is valid; a `StorageError` (lock or storage failure) from one side is tolerated
+as fail-closed. A drift or integrity error is not: each process verifies under the lock against fresh state, so it
+would mean a real race bug.
 Whatever happens, the ledger is a prefix of source history with no duplicates and `prompts` equals its replay.
 Coordination uses multiprocessing events, never sleeps. Child targets are module-level so they pickle under spawn.
 """
@@ -12,7 +14,7 @@ import multiprocessing
 from pathlib import Path
 
 from promptmigrate import core, revisions, store
-from promptmigrate.errors import MigrationError
+from promptmigrate.errors import StorageError
 
 from pmtest import write_revision
 
@@ -86,7 +88,7 @@ def test_concurrent_upgrade_and_downgrade_leave_a_consistent_state(project):
     up_ids, up_exc = results["upgrade"]
     down_ids, down_exc = results["downgrade"]
     for exc in (up_exc, down_exc):
-        assert exc is None or issubclass(exc, MigrationError), f"untyped failure: {results!r}"
+        assert exc is None or issubclass(exc, StorageError), f"unexpected failure: {results!r}"
     assert not (up_exc and down_exc), f"both processes failed: {results!r}"
 
     rows, ledger = _state(project_dir)
