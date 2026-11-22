@@ -7,14 +7,14 @@ import sys
 import warnings
 from . import __version__, output
 from .commands import (
-    check, current, diff, downgrade, env, get, history, init, plan, restamp, revision, upgrade, validate,
+    check, current, diff, downgrade, env, get, history, init, plan, rebase, restamp, revision, upgrade, validate,
 )
 from .errors import PromptMigrateWarning
 
 COMMANDS = {
     "init": init, "revision": revision, "history": history, "diff": diff, "current": current,
     "upgrade": upgrade, "downgrade": downgrade, "check": check, "get": get, "env": env, "plan": plan,
-    "restamp": restamp, "validate": validate,
+    "restamp": restamp, "validate": validate, "rebase": rebase,
 }
 
 
@@ -54,6 +54,9 @@ def build_parser() -> argparse.ArgumentParser:
     chk.add_argument("--require-head", action="store_true", help="Fail if migration(s) pending")
     rst = sub.add_parser("restamp", help="Accept line-ending-only changes to applied v0 revisions")
     rst.add_argument("--env", default="dev")
+    rbs = sub.add_parser("rebase", help="Re-parent an unapplied branch after a Git merge")
+    rbs.add_argument("--onto", default=None, help="tip id of the branch to keep (required when neither branch is applied)")
+    rbs.add_argument("--env", default="dev")
     val = sub.add_parser("validate", help="Check source history, drafts and manifests; never reads env state")
     val.add_argument("--strict", action="store_true", help="Fail if any warning is raised")
     val.add_argument("--drafts-clean", action="store_true", help="Fail if drafts differ from head")

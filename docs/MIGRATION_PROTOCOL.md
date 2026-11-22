@@ -239,6 +239,26 @@ Without a manifest, the store infers `dev`, `staging` and every `states/*.sqlite
 
 For MVP: at most one root and one child per revision. No merge branches, disconnected history, cycles, or missing parent allowed. If there is no version file, `head` is the empty base state.
 
+## Rebase after a Git merge
+
+Two clones that each ran `promptmigrate revision -m ...` from the same source head produce a fork: one root, one fork point, two linear branches. `load_revisions` deliberately rejects any fork (exit 3), so every command except `rebase` fails closed on forked history.
+
+`promptmigrate rebase [--onto <tip-id>]` repairs exactly that fork:
+
+- It brings its own fork-tolerant loader (no other command uses it) and accepts exactly one fork point with exactly two linear branches; any other shape raises `RevisionGraphError` (exit 3) and writes nothing.
+- A revision is *applied* when its id is a ledger row in any declared environment (`environments.json`). Rebase reads every declared environment's ledger under the project lock, read-only, and never creates a state DB. An unreadable or corrupt ledger fails closed.
+- The branch ending at `<tip-id>` stays; the other branch is moved onto that tip. `--onto` is optional when exactly one branch has applied revisions (that branch stays) and required when neither does.
+- Moving any applied revision, or `--onto` naming the branch that must move, raises `MigrationConflictError` (exit 4) and writes nothing.
+- Each moved revision, oldest first, gets a new 12-hex id (the same generator `revision` uses, avoiding every existing id). Its `down_revision` is set to the previous kept or moved revision, and its `before` snapshots are recomputed from the replayed new parent. `after`, `message` and `created_at` are carried over unchanged. Each moved file is written as v1 (ADR-026) atomically, whatever its previous format version; no format-version or checksum rule changes.
+- A moved revision is checked against the prompt names touched by every revision on the other branch: rebase collects each branch's touched-prompt set and rejects any intersection — including both branches setting a prompt to the same `after` — raising `MigrationConflictError` naming the prompt and writing nothing. Rejection happens before any file is written; the recompute doubles as the conflict check, so every non-conflicting `before` is unchanged.
+- All new files are written first, then the old files are removed tip-first, then the result is checked with `load_revisions` and a full replay. A crash between those steps leaves both chains on disk plus possibly a partial `.tmp` file; `load_revisions` reports the existing branching error, nothing is lost, and Git restores the pre-rebase state.
+- Rebase never opens a state DB for writing, never touches `prompts`, ledgers or `events` (ADR-029), and never edits drafts.
+
+Moved revisions lose their original ids and filenames. An environment elsewhere that already applied the old id will not find it in source and fails closed at its next `check`/`upgrade`; rebase does not fix such an environment — rebase before applying merged revisions anywhere.
+
+Three or more branches, more than one fork, auto-merging prompts, an `--env` scoped check and a `--dry-run` preview are out of scope.
+
+
 ## Snapshot/storage limits to discuss
 
 - Duplicated full configs increase repository size for frequent revisions.
