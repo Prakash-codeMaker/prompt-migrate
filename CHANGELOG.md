@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **`rebase` command (#15)** — `promptmigrate rebase [--onto <tip-id>]` re-parents an unapplied branch after a Git merge, minting new ids per accepted ADR-030. Fork-tolerant loader in `revisions.py`; `commands/rebase.py`; CLI registration; rejects applied revisions and conflicting prompts; moves files as v1 (Contract).
 
 ### Testing
+- **Concurrent `revision` test** — two processes run `revision` on one project with the same drafts and head; the lock serializes them, exactly one creates the revision and the other fails closed with `SchemaError`, leaving one new file, no `.tmp` and a loadable chain (#32)
 - **Concurrent `upgrade`/`downgrade` test** — one process runs `upgrade head` while another runs `downgrade -1` on the same environment; either serial order is accepted, only a `StorageError` is tolerated, and the ledger is a prefix of history with `prompts` equal to its replay (#31)
 
 ### Documentation
