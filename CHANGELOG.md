@@ -75,6 +75,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Testing
 
+- **Fault-injection suite for `project.write_new_file`** — raises `OSError` at each step (temp create, write, fsync, close, link, temp cleanup, directory fsync) on the hard-link path and the no-hard-link fallback; no partial revision stays under `versions/`, history loads and a retry succeeds (#33)
 - **Fault-injection suite for `apply.py`** — raises an exception or `sqlite3` error at every read, write and commit point of `upgrade` and `downgrade` (35 cases); the ledger and `prompts` rows stay unchanged and a retry succeeds (#12)
 - **Concurrent `upgrade` test** — two real processes run `upgrade head` on one environment; exactly one applies both revisions and the other sees nothing to do or fails closed (#11)
 - **Package-install smoke tests** — build wheel and sdist into a fresh temporary directory, install them into separate venvs outside the checkout, verify import origins, run a full draft round trip, and run `validate` through the console script (#13, #87)

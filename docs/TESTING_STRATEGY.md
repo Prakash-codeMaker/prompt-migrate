@@ -118,6 +118,7 @@ Basenames stay unique across directories, because pytest's default `prepend` imp
 |---|---|
 | Failure after updating one prompt but before ledger insert | Whole local SQLite transaction rolls back |
 | Failure at any write, read or commit point of `upgrade`/`downgrade` (#12) | Rows and ledger both unchanged; `check` clean; the same command succeeds on retry |
+| `OSError` at any step of `project.write_new_file` (#33), hard-link path or fallback | No revision or partial file under `versions/`; history loads; the same write succeeds on retry. After publish, a failed temp cleanup or directory fsync is ignored |
 | Applied migration file mutated | Next check/apply blocks |
 | Environment prompt manually changed | Drift error blocks |
 | Two revisions created concurrently at same source head | Detect branch; no auto-merge |
