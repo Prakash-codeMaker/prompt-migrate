@@ -99,3 +99,9 @@ def test_concurrent_upgrade_and_downgrade_leave_a_consistent_state(project):
     if up_exc is None and down_exc is None:
         # Both ran, serialized: U then D, or D then U. Nothing else is reachable.
         assert (up_ids, down_ids, ledger) in (([R2], [R2], [R1]), ([R1, R2], [R1], [R1, R2])), results
+    elif up_exc is not None:
+        # A failed side must leave nothing behind (connect_write rolls back), so the downgrade ran alone from [R1].
+        assert (down_ids, ledger) == ([R1], []), results
+    else:
+        # Same for a failed downgrade: the upgrade ran alone from [R1].
+        assert (up_ids, ledger) == ([R2], [R1, R2]), results
