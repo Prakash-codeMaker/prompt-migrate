@@ -1,4 +1,7 @@
-"""Fault injection (#33): an OSError at any step of `project.write_new_file` never leaves a half-written revision.
+"""Fault injection (#33): an OSError at any step of `project.write_new_file` leaves no half-written revision.
+
+The one exception is a double fault on the fallback: if the write and the removal of its partial file both fail, the
+partial file stays, and the history loader rejects it (fail closed) instead of reading it as a revision.
 
 Every step is listed in HARD_LINK and FALLBACK. A recording run proves the lists match what the code really does,
 so a new step cannot ship without a fault case. Faults go on `project` and on the stdlib calls it makes (`os`,
