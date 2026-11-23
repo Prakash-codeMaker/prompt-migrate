@@ -108,3 +108,4 @@ def test_plan_is_immutable():
     result = plan.build(HISTORY, 0, "head")
     with pytest.raises(Exception):
         result.direction = "x"
+

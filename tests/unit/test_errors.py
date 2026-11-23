@@ -10,8 +10,9 @@ from pmtest import CFG, create, pm_dir, set_draft, write_revision
 from promptmigrate import core, errors
 from promptmigrate.core import check, downgrade, draft_diff, get_config, init, load_revisions, revision, upgrade
 from promptmigrate.errors import (
-    DriftError, InitializationError, IntegrityError, LegacyRevisionWarning, MigrationConflictError, MigrationError,
-    PendingRevisionsError, PromptMigrateWarning, RevisionGraphError, SchemaError, TargetError,
+    DeletionWarning, DriftError, InitializationError, IntegrityError,
+    LegacyRevisionWarning, MigrationConflictError, MigrationError, PendingRevisionsError,
+    PromptMigrateWarning, RevisionGraphError, SchemaError, TargetError,
 )
 
 A, B, C = "a" * 12, "b" * 12, "c" * 12
@@ -25,6 +26,7 @@ def test_hierarchy():
         assert issubclass(cls, MigrationError)
     assert issubclass(PromptMigrateWarning, UserWarning)
     assert issubclass(LegacyRevisionWarning, PromptMigrateWarning)
+    assert issubclass(DeletionWarning, PromptMigrateWarning)
 
 
 # --- InitializationError ----------------------------------------------------------------------
