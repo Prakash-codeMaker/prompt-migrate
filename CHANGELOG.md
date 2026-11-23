@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 - **`rebase` command (#15)** — `promptmigrate rebase [--onto <tip-id>]` re-parents an unapplied branch after a Git merge, minting new ids per accepted ADR-030. Fork-tolerant loader in `revisions.py`; `commands/rebase.py`; CLI registration; rejects applied revisions and conflicting prompts; moves files as v1 (Contract).
+- **`DeletionWarning` on `revision` (#22)** — a generated revision that deletes a named config (`after: null`) emits a non-blocking `DeletionWarning` at authoring time; `plan`/`diff` already surface deletions as `kind: delete`. No apply-time gate: `upgrade`/`downgrade` apply deletions freely per ADR-031 (Contract: none — warnings never change exit codes).
 
 ### Testing
 - **Concurrent `revision` test** — two processes run `revision` on one project with the same drafts and head; the lock serializes them, exactly one creates the revision and the other fails closed with `SchemaError`, leaving one new file, no `.tmp` and a loadable chain (#32)

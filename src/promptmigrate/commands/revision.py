@@ -10,7 +10,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .. import draftdiff, output, project, protocol, revisions, secretscan
-from ..errors import LegacyRevisionWarning, SchemaError, SecretDetectedError, SecretInHistoryWarning, StorageError
+from ..errors import (
+    DeletionWarning,
+    LegacyRevisionWarning,
+    SchemaError,
+    SecretDetectedError,
+    SecretInHistoryWarning,
+    StorageError,
+)
 from ..store import lock
 
 _ID_ATTEMPTS = 5
@@ -40,6 +47,14 @@ def _write_revision(project_dir: Path, message: str) -> revisions.Revision:
     if not changes:
         raise SchemaError("No changes between drafts and migration head")
     rid = _new_id({r.revision for r in all_revisions})
+    removed = [name for name, change in changes.items() if change["after"] is None]
+    if removed:
+        listed = ", ".join(sorted(removed))
+        warnings.warn(
+            f"Revision {rid} would delete {listed}; they show as `delete` in `plan`/`diff`.",
+            DeletionWarning,
+            stacklevel=3,
+        )
     parent = all_revisions[-1].revision if all_revisions else None
     for name, change in changes.items():
         if change["after"] is not None:

@@ -89,3 +89,7 @@ class SecretInHistoryWarning(PromptMigrateWarning):
 
 class StaleAllowlistWarning(PromptMigrateWarning):
     """A secret allowlist entry matched nothing in drafts or history."""
+
+
+class DeletionWarning(PromptMigrateWarning):
+    """A generated revision deletes one or more named configs; they show as `delete` in `plan`/`diff`."""
