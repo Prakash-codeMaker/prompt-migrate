@@ -4,6 +4,25 @@ All notable changes to PromptMigrate are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/). Before 1.0, CLI and file contracts may change; such changes are marked **Contract**.
 
+## How to add an entry
+
+Add new work at the top of `## [Unreleased]`, under the matching `###` group. Use the existing groups where they fit: `Added`, `Changed`, `Fixed`, `Contract`, `Security`, `Removed`, `Deprecated`, `Testing`, `Documentation` or `Internal`.
+
+Use one bullet per change, following the style already used below:
+
+```markdown
+- **Name** — concise description of what changed and why (#<issue-or-PR>)
+- **Contract:** description of a CLI, JSON, state or revision-format contract change (ADR-###)
+```
+
+Link an issue or pull request as `(#N)`; cite an accepted design as `(ADR-NNN)`. Put the newest entries first. When releasing, move the unreleased entries under a new version heading in the existing `## [version] - YYYY-MM-DD` format.
+
+Mark changes to revision-file format, checksums, state layout, CLI exit codes or the JSON envelope with a leading `**Contract:**`. Never add secrets, credentials, token-shaped literals or test results that were not actually run.
+
+Examples already in this changelog: the unreferenced README badge entry (plain entry), the `--output json` bullet (contract marker), `(#15)` / `(#22)` (issue references), and `(ADR-030)` (decision reference).
+
+---
+
 ---
 
 ## [Unreleased]
