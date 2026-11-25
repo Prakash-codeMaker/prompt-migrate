@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Concurrent `upgrade`/`downgrade` test** — one process runs `upgrade head` while another runs `downgrade -1` on the same environment; either serial order is accepted, only a `StorageError` is tolerated, and the ledger is a prefix of history with `prompts` equal to its replay (#31)
 
 ### Documentation
+- **Issue template chooser configuration** — disables blank issues and routes vulnerability reports to GitHub's private reporting page (#18)
 - **ADR-030 `rebase`** — design accepted for `promptmigrate rebase` (#15): re-parent an unapplied branch after a Git merge with new ids, written as v1, refusing applied revisions and conflicting prompts; now implemented (was docs only).
 - **README** — explain recovery from line-ending drift (#104)
 
